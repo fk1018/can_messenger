@@ -92,4 +92,4 @@ The gem is available as open-source under the terms of the MIT License.
 
 ## Author
 
-Developed by Fredrick Khoury.
+Developed by fk1018.
