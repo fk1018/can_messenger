@@ -4,7 +4,7 @@
 require "simplecov"
 
 SimpleCov.start do
-  add_filter "/test/"   # Exclude test files from coverage results
+  add_filter "/spec/"   # Exclude test files from coverage results
 end
 
 $LOAD_PATH.unshift File.expand_path("../../lib", __dir__)
