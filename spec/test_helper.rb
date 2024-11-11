@@ -4,10 +4,10 @@
 require "simplecov"
 
 SimpleCov.start do
-  add_filter "/spec/"   # Exclude test files from coverage results
+  add_filter "/spec/"
 end
 
 $LOAD_PATH.unshift File.expand_path("../../lib", __dir__)
-require "can_messenger" # This will load `lib/can_messenger/messenger.rb`
+require "can_messenger"
 
 require "rspec"
