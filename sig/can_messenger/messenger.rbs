@@ -1,0 +1,18 @@
+module CanMessenger  
+  class Messenger
+    @can_interface: String
+    @logger: Logger
+    @listening: bool
+
+    def initialize: (String can_interface, ?Logger logger) -> void
+    def send_can_message: (Integer id, Array[Integer] data) -> void
+    def start_listening: () { (Hash[:id => Integer, :data => Array[Integer]]) -> void } -> void
+    def stop_listening: () -> void
+
+    private
+
+    def create_socket: () -> Socket?
+    def receive_message: (Socket socket) -> Hash[:id => Integer, :data => Array[Integer]]?
+    def parse_frame: (String frame) -> Hash[:id => Integer, :data => Array[Integer]]?
+  end
+end

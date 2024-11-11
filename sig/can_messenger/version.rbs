@@ -1,0 +1,3 @@
+module CanMessenger
+  VERSION: String
+end
