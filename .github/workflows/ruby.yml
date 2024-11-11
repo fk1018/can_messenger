@@ -30,9 +30,12 @@ jobs:
         run: bundle exec rubocop
 
       - name: Run tests
-        run: bundle exec rake test:rspec
+        run: bundle exec rake test:rspec && ls -al coverage
+
+      - name: List coverage directory
+        run: ls -al coverage
 
       - name: Upload coverage to Codecov
-        run: bash <(curl -s https://codecov.io/bash) -s coverage
+        run: ls -al coverage && bash <(curl -s https://codecov.io/bash) -s coverage
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
