@@ -1,0 +1,4 @@
+# codecov.yml
+coverage:
+  paths:
+    - "coverage/.resultset.json" # specify the exact path

@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -29,3 +31,8 @@ jobs:
 
       - name: Run tests
         run: bundle exec rake test:rspec
+
+      - name: Upload coverage to Codecov
+        run: bash <(curl -s https://codecov.io/bash) -f coverage/.resultset.json
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
