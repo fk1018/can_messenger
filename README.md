@@ -54,7 +54,7 @@ To listen for incoming messages, set up a listener:
 
 ```ruby
 messenger.start_listening do |message|
-puts "Received: ID=#{message[:id]}, Data=#{message[:data]}"
+    puts "Received: ID=#{message[:id]}, Data=#{message[:data]}"
 end
 ```
 
