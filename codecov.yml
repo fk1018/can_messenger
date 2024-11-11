@@ -1,0 +1,7 @@
+# codecov.yml
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  paths:
+    - "coverage/.resultset.json"
