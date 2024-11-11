@@ -33,8 +33,6 @@ jobs:
         run: bundle exec rake test:rspec
 
       - name: Upload coverage to Codecov
-        run: bash <(curl -s https://codecov.io/bash)
+        run: bash <(curl -s https://codecov.io/bash) -f coverage/.resultset.json
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-          CODECOV_EXCLUDE: "*.html,*.lock,assets" # Exclude non-report files
-
