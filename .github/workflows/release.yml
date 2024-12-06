@@ -27,5 +27,5 @@ jobs:
 
       - name: Publish the gem
         env:
-          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: gem push can_messenger-*.gem
