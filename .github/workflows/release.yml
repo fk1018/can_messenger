@@ -1,4 +1,4 @@
-name: Publish Gem to RubyGems
+name: Tag and Publish Gem to RubyGems
 
 on:
   push:
@@ -6,25 +6,45 @@ on:
       - main
 
 jobs:
-  release:
-    name: Publish to RubyGems
+  tag_and_release:
+    name: Tag and Publish to RubyGems
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2: Extract version from version.rb
+      - name: Extract version from version.rb
+        id: version
+        run: |
+          version=$(ruby -r ./lib/can_messenger/version -e 'puts CanMessenger::VERSION')
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      # Step 3: Create and push tag
+      - name: Create and push tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 4: Set up Ruby
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3 # Match your Ruby version
 
+      # Step 5: Install Bundler
       - name: Install Bundler
         run: gem install bundler
 
+      # Step 6: Build the gem
       - name: Build the gem
         run: gem build can_messenger.gemspec
 
+      # Step 7: Publish the gem
       - name: Publish the gem
         env:
           GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
