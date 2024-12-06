@@ -51,9 +51,9 @@ messenger = CanMessenger::Messenger.new('can0')
 
 To send a message:
 
-```ruby
-messenger.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
-```
+    ```ruby
+    messenger.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
+    ```
 
 ### Receiving CAN Messages
 
@@ -63,6 +63,36 @@ To listen for incoming messages, set up a listener:
 messenger.start_listening do |message|
     puts "Received: ID=#{message[:id]}, Data=#{message[:data]}"
 end
+```
+
+#### Listening with Filters
+
+The `start_listening` method supports filtering incoming messages based on CAN ID:
+
+Single CAN ID:
+
+```ruby
+messenger.start_listening(filter: 0x123) do |message|
+  puts "Received filtered message: #{message}"
+end
+```
+
+Range of CAN IDs:
+
+```ruby
+messenger.start_listening(filter: 0x100..0x200) do |message|
+  puts "Received filtered message: #{message}"
+end
+
+```
+
+Array of CAN IDs:
+
+```ruby
+messenger.start_listening(filter: [0x123, 0x456, 0x789]) do |message|
+  puts "Received filtered message: #{message}"
+end
+
 ```
 
 ### Stopping the Listener
