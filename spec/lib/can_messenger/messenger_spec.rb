@@ -142,4 +142,27 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
       expect(parsed).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF])
     end
   end
+
+  describe "#matches_filter?" do
+    let(:messenger) { described_class.new("can0") }
+
+    it "returns true when the filter is nil" do
+      expect(messenger.send(:matches_filter?, 0x123, nil)).to eq(true)
+    end
+
+    it "matches a single CAN ID" do
+      expect(messenger.send(:matches_filter?, 0x123, 0x123)).to eq(true)
+      expect(messenger.send(:matches_filter?, 0x124, 0x123)).to eq(false)
+    end
+
+    it "matches a range of CAN IDs" do
+      expect(messenger.send(:matches_filter?, 0x123, 0x100..0x200)).to eq(true)
+      expect(messenger.send(:matches_filter?, 0x300, 0x100..0x200)).to eq(false)
+    end
+
+    it "matches an array of CAN IDs" do
+      expect(messenger.send(:matches_filter?, 0x123, [0x123, 0x124, 0x125])).to eq(true)
+      expect(messenger.send(:matches_filter?, 0x126, [0x123, 0x124, 0x125])).to eq(false)
+    end
+  end
 end

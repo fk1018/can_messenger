@@ -43,15 +43,22 @@ module CanMessenger
 
     # Continuously listens for CAN messages on the specified interface.
     #
-    # Yields each message as a hash with keys :id and :data.
+    # This method listens for incoming CAN messages and applies an optional filter.
+    # The filter can be a specific CAN ID or a range of IDs. Only messages that match
+    # the filter are yielded to the provided block.
+    #
+    # @param [Integer, Range, nil] filter Optional filter for CAN IDs. Pass a single ID (e.g., 0x123)
+    #   or a range (e.g., 0x100..0x200). If no filter is provided, all messages are processed.
     # @yield [Hash] Each received message in the format { id: Integer, data: Array<Integer> }.
     # @return [void]
-    def start_listening
+    def start_listening(filter: nil)
       @logger.info("Started listening on #{@can_interface}")
       socket = create_socket
       while @listening
         message = receive_message(socket)
         break unless message # Exit loop if no message
+
+        next if filter && !matches_filter?(message[:id], filter) # Apply filter if specified
 
         yield(message)
       end
@@ -114,6 +121,30 @@ module CanMessenger
     rescue StandardError => e
       @logger.error("Error parsing CAN frame: #{e}")
       nil
+    end
+
+    # Checks if a message ID matches the given filter.
+    #
+    # Supported filters:
+    # - A single ID (e.g., 0x123)
+    # - A range of IDs (e.g., 0x100..0x200)
+    # - An array of IDs (e.g., [0x123, 0x200, 0x300])
+    #
+    # @param [Integer] message_id The ID of the incoming CAN message.
+    # @param [Integer, Range, Array<Integer>, nil] filter The filter to apply.
+    #   If nil, the method always returns true.
+    # @return [Boolean] True if the message ID matches the filter, false otherwise.
+    def matches_filter?(message_id, filter)
+      case filter
+      when Integer
+        message_id == filter
+      when Range
+        filter.cover?(message_id)
+      when Array
+        filter.include?(message_id)
+      else
+        true # No filter or unrecognized filter
+      end
     end
   end
 end
