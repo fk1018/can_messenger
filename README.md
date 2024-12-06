@@ -51,9 +51,9 @@ messenger = CanMessenger::Messenger.new('can0')
 
 To send a message:
 
-    ```ruby
-    messenger.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
-    ```
+```ruby
+messenger.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
+```
 
 ### Receiving CAN Messages
 
