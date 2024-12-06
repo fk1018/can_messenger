@@ -1,0 +1,31 @@
+name: Publish Gem to RubyGems
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Publish to RubyGems
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3 # Match your Ruby version
+
+      - name: Install Bundler
+        run: gem install bundler
+
+      - name: Build the gem
+        run: gem build can_messenger.gemspec
+
+      - name: Publish the gem
+        env:
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: gem push can_messenger-*.gem
