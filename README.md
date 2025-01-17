@@ -14,7 +14,7 @@
 This gem relies on `cansend` from the `can-utils` package, which is typically available on Linux-based systems. Make sure to install `can-utils` before using `can_messenger`:
 
 ```bash
-sudo apt-get install can-utils
+sudo apt install can-utils
 ```
 
 To install `can_messenger`, add it to your application's Gemfile:
