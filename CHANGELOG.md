@@ -6,6 +6,12 @@
 
 ### Fixed
 
+## [0.2.2] - 2024-12-06
+
+### Changed
+
+- Updated README.md to reflect modern debian package install command.
+
 ## [0.2.1] - 2024-12-06
 
 ### Changed
