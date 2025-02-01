@@ -56,8 +56,7 @@ module CanMessenger
       socket = create_socket
       while @listening
         message = receive_message(socket)
-        break unless message # Exit loop if no message
-
+        next if message.nil? # Skip if no message received
         next if filter && !matches_filter?(message[:id], filter) # Apply filter if specified
 
         yield(message)

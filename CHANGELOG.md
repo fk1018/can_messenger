@@ -6,6 +6,14 @@
 
 ### Fixed
 
+## [0.2.3] - 2025-02-01
+
+### Changed
+
+- Updated the internal listening loop in `start_listening` to continue iterating on nil (timeout) responses instead of breaking out, improving reliability.
+- Suppressed log output during tests by injecting a silent logger.
+- Updated the test suite to better handle long-running listening loops and error conditions.
+
 ## [0.2.2] - 2024-12-06
 
 ### Changed

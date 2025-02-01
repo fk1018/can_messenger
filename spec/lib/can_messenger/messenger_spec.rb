@@ -4,6 +4,7 @@
 require "test_helper"
 require "socket"
 require "logger"
+require "stringio" # Ensure StringIO is loaded
 
 RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
   before(:all) do
@@ -21,7 +22,9 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
   end
 
   let(:interface) { "can0" }
-  let(:socket) { described_class.new(interface) }
+  # Create a silent logger that writes to a StringIO so no log output appears during tests.
+  let(:silent_logger) { Logger.new(StringIO.new) }
+  let(:socket) { described_class.new(interface, silent_logger) }
 
   before do
     allow(socket).to receive(:system).and_return(true)
@@ -62,10 +65,13 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
 
     def capture_received_messages
       received_messages = []
-      socket.start_listening do |message|
-        received_messages << message
-        socket.stop_listening # Explicitly stop after one message to prevent infinite loop
+      listener_thread = Thread.new do
+        socket.start_listening do |message|
+          received_messages << message
+          socket.stop_listening # Stop once a message is received to prevent an infinite loop.
+        end
       end
+      listener_thread.join(1)
       received_messages
     end
 
@@ -76,18 +82,39 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
 
     it "closes the socket after listening" do
       allow(mock_socket).to receive(:recv).and_return(nil)
-      socket.start_listening { socket.stop_listening }
+      listener_thread = Thread.new { socket.start_listening {} }
+      sleep 0.2 # Let the listening loop run briefly
+      socket.stop_listening
+      listener_thread.join(1) # Wait for the thread to finish (with a timeout)
       expect(mock_socket).to have_received(:close)
     end
 
-    it "handles IO::WaitReadable gracefully" do
+    it "handles IO::WaitReadable gracefully and terminates the thread" do
       allow(mock_socket).to receive(:recv).and_raise(IO::WaitReadable)
-      expect { socket.start_listening { socket.stop_listening } }.not_to raise_error
+
+      listener_thread = Thread.new do
+        socket.start_listening {}
+      end
+
+      sleep 0.2 # Let the thread run briefly.
+      socket.stop_listening
+      listener_thread.join(1)
+
+      expect(listener_thread).not_to be_alive
     end
 
-    it "handles StandardError gracefully" do
+    it "handles StandardError gracefully and terminates the thread" do
       allow(mock_socket).to receive(:recv).and_raise(StandardError)
-      expect { socket.start_listening { socket.stop_listening } }.not_to raise_error
+
+      listener_thread = Thread.new do
+        socket.start_listening {}
+      end
+
+      sleep 0.2 # Let the thread run briefly.
+      socket.stop_listening
+      listener_thread.join(1)
+
+      expect(listener_thread).not_to be_alive
     end
   end
 
@@ -144,7 +171,7 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
   end
 
   describe "#matches_filter?" do
-    let(:messenger) { described_class.new("can0") }
+    let(:messenger) { described_class.new("can0", silent_logger) }
 
     it "returns true when the filter is nil" do
       expect(messenger.send(:matches_filter?, 0x123, nil)).to eq(true)
