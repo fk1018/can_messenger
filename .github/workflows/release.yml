@@ -10,6 +10,10 @@ jobs:
     name: Tag and Publish to RubyGems
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write # REQUIRED for OIDC authentication
+      contents: write # Allows creating a tag and pushing it
+
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -34,7 +38,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.3 # Match your Ruby version
+          ruby-version: 3.3
 
       # Step 5: Install Bundler
       - name: Install Bundler
@@ -44,8 +48,10 @@ jobs:
       - name: Build the gem
         run: gem build can_messenger.gemspec
 
-      # Step 7: Publish the gem
+      # Step 7: Authenticate to RubyGems using OIDC
+      - name: Authenticate to RubyGems
+        uses: rubygems/auth-action@v1
+
+      # Step 8: Publish the gem using OIDC
       - name: Publish the gem
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: gem push can_messenger-*.gem
