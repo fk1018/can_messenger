@@ -103,6 +103,48 @@ To stop listening, use:
 messenger.stop_listening
 ```
 
+## Important Considerations
+
+Before using `can_messenger`, please note the following:
+
+- **Environment Requirements:**
+
+  - **Permissions:** Working with raw sockets may require elevated privileges or membership in a specific group to open and bind to CAN interfaces without running as root.
+
+- **API Changes (v1.0.0 and later):**
+
+  - **Keyword Arguments:** The Messenger API now requires keyword arguments. For example, when initializing the Messenger, use:
+    ```ruby
+    messenger = CanMessenger::Messenger.new(interface_name: 'can0')
+    ```
+    Similarly, methods like `send_can_message` now require named parameters:
+    ```ruby
+    messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
+    ```
+    If you're upgrading from an earlier version, update your code accordingly.
+  - **Block Requirement for `start_listening`:**  
+    The `start_listening` method now requires a block. If no block is provided, the method logs an error and exits without processing messages. Ensure you pass a block to handle incoming CAN messages:
+    ```ruby
+    messenger.start_listening do |message|
+      # Process the message here
+      puts "Received: #{message}"
+    end
+    ```
+
+- **Threading & Socket Management:**
+
+  - **Blocking Behavior:** The gem uses blocking socket calls and continuously listens for messages. Be sure to manage the listener's lifecycle appropriately,especially if using it in a multi-threaded application. Always call `stop_listening` to gracefully shut down the listener.
+  - **Resource Cleanup:** The socket is automatically closed when the listening loop terminates. However, you should ensure that your application stops the listener to avoid resource leaks.
+
+- **Logging:**
+
+  - **Default Logger:** By default, if no logger is provided, the gem logs to standard output. For more controlled logging, pass a custom logger when initializing the Messenger.
+
+- **CAN Frame Format Assumptions:**
+  - The gem expects a standard CAN frame format with a minimum frame size and specific layout (e.g., the first 4 bytes for the CAN ID, followed by a byte indicating data length, etc.). If you work with non-standard frames, you may need to adjust the implementation.
+
+By keeping these points in mind, you can avoid common pitfalls and ensure that `can_messenger` is integrated smoothly into your project.
+
 ## Features
 
 - **Send CAN Messages**: Send CAN messages with a specified ID.

@@ -5,6 +5,11 @@
 ### Changed
 
 ### Fixed
+## [1.0.1] - 2025-02-09
+
+### Changed
+- Updated the README to include an **Important Considerations** section that outlines environment requirements, API changes (keyword arguments and block requirement), threading and socket management notes, and logging behavior.
+- Made minor documentation clarifications and tweaks to help users avoid common pitfalls.
 
 ## [1.0.0] - 2025-02-09
 
