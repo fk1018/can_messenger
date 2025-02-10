@@ -1,18 +1,23 @@
-module CanMessenger  
+module CanMessenger
   class Messenger
     @can_interface: String
     @logger: Logger
     @listening: bool
 
-    def initialize: (String can_interface, ?Logger logger) -> void
-    def send_can_message: (Integer id, Array[Integer] data) -> void
-    def start_listening: (?filter: (Integer | Range[Integer] | Array[Integer])?) { (Hash[:id => Integer, :data => Array[Integer]]) -> void } -> void
+    def initialize: (interface_name: String, logger: Logger?) -> void
+    def send_can_message: (id: Integer, data: Array[Integer]) -> void
+    def start_listening: (
+        ?filter: (Integer | Range[Integer] | Array[Integer])?
+      ) { (message: { id: Integer, data: Array[Integer] }) -> void } -> void
     def stop_listening: () -> void
 
     private
 
-    def create_socket: () -> Socket?
-    def receive_message: (Socket socket) -> Hash[:id => Integer, :data => Array[Integer]]?
-    def parse_frame: (String frame) -> Hash[:id => Integer, :data => Array[Integer]]?
+    def open_can_socket: () -> (Socket | nil)
+    def with_socket: () { (socket: Socket) -> void } -> void
+    def process_message: (socket: Socket, filter: (Integer | Range[Integer] | Array[Integer])?, &block: (Proc { (message: { id: Integer, data: Array[Integer] }) -> void })) -> void
+    def receive_message: (socket: Socket) -> ({ id: Integer, data: Array[Integer] } | nil)
+    def parse_frame: (frame: String) -> ({ id: Integer, data: Array[Integer] } | nil)
+    def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool
   end
 end

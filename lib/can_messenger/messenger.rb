@@ -11,18 +11,22 @@ module CanMessenger
   # It supports sending messages with specific CAN IDs and listening for incoming messages.
   #
   # @example
-  #   socket = CanMessenger::Messenger.new('can0')
-  #   socket.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
-  #   socket.start_listening do |message|
+  #   messenger = CanMessenger::Messenger.new(interface_name: 'can0')
+  #   messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
+  #   messenger.start_listening do |message|
   #     puts "Received: ID=#{message[:id]}, Data=#{message[:data].map { |b| '0x%02X' % b }}"
   #   end
   class Messenger
+    FRAME_SIZE = 16
+    MIN_FRAME_SIZE = 8
+    TIMEOUT = [1, 0].pack("l_2")
     # Initializes a new Messenger instance.
     #
-    # @param [String] can_interface The CAN interface to use (e.g., 'can0').
-    # @param [Logger] logger Optional logger for error handling and debug information.
-    def initialize(can_interface, logger = nil)
-      @can_interface = can_interface
+    # @param [String] interface_name The CAN interface to use (e.g., 'can0').
+    # @param [Logger, nil] logger Optional logger for error handling and debug information.
+    # @return [void]
+    def initialize(interface_name:, logger: nil)
+      @can_interface = interface_name
       @logger = logger || Logger.new($stdout)
       @listening = true # Control flag for listening loop
     end
@@ -32,11 +36,11 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message.
     # @param [Array<Integer>] data The data bytes of the CAN message.
     # @return [void]
-    def send_can_message(id, data)
+    def send_can_message(id:, data:)
       hex_id = format("%03X", id)
       hex_data = data.map { |byte| format("%02X", byte) }.join
       command = "cansend #{@can_interface} #{hex_id}##{hex_data}"
-      system(command)
+      system(command) # @todo validate command status
     rescue StandardError => e
       @logger.error("Error sending CAN message (ID: #{id}): #{e}")
     end
@@ -44,25 +48,23 @@ module CanMessenger
     # Continuously listens for CAN messages on the specified interface.
     #
     # This method listens for incoming CAN messages and applies an optional filter.
-    # The filter can be a specific CAN ID or a range of IDs. Only messages that match
-    # the filter are yielded to the provided block.
+    # The filter can be a specific CAN ID, a range of IDs, or an array of IDs.
+    # Only messages that match the filter are yielded to the provided block.
     #
-    # @param [Integer, Range, nil] filter Optional filter for CAN IDs. Pass a single ID (e.g., 0x123)
-    #   or a range (e.g., 0x100..0x200). If no filter is provided, all messages are processed.
-    # @yield [Hash] Each received message in the format { id: Integer, data: Array<Integer> }.
+    # @param [Integer, Range, Array<Integer>, nil] filter Optional filter for CAN IDs.
+    #   Pass a single ID (e.g., 0x123), a range (e.g., 0x100..0x200), or an array of IDs.
+    #   If no filter is provided, all messages are processed.
+    # @yield [message] Yields each received CAN message as a hash with keys:
+    #   - `:id` [Integer] the CAN message ID
+    #   - `:data` [Array<Integer>] the message data bytes
     # @return [void]
-    def start_listening(filter: nil)
-      @logger.info("Started listening on #{@can_interface}")
-      socket = create_socket
-      while @listening
-        message = receive_message(socket)
-        next if message.nil? # Skip if no message received
-        next if filter && !matches_filter?(message[:id], filter) # Apply filter if specified
+    def start_listening(filter: nil, &block)
+      return @logger.error("No block provided to handle messages.") unless block_given?
 
-        yield(message)
+      with_socket do |socket|
+        @logger.info("Started listening on #{@can_interface}")
+        process_message(socket, filter, &block) while @listening
       end
-    ensure
-      socket&.close
     end
 
     # Stops the listening loop by setting @listening to false.
@@ -76,28 +78,68 @@ module CanMessenger
 
     private
 
+    # Yields an open CAN socket to the given block.
+    #
+    # Opens a socket and, if successful, yields it to the block.
+    # If the socket cannot be opened, logs an error and returns.
+    #
+    # @yield [socket] An open CAN socket.
+    # @return [void]
+    def with_socket
+      socket = open_can_socket
+      return @logger.error("Failed to open socket, cannot continue listening.") if socket.nil?
+
+      yield socket
+    ensure
+      socket&.close
+    end
+
+    # Processes a single CAN message.
+    #
+    # Reads a message from the socket, applies the filter, and yields the message if appropriate.
+    # If an error occurs during processing, it logs the error.
+    #
+    # @param socket [Socket] The CAN socket.
+    # @param filter [Integer, Range, Array<Integer>, nil] Optional filter for CAN IDs.
+    # @yield [message] Yields the message if it passes filtering.
+    # @return [void]
+    def process_message(socket, filter)
+      message = receive_message(socket: socket)
+      return if message.nil?
+      return if filter && !matches_filter?(message_id: message[:id], filter: filter)
+
+      yield(message)
+    rescue StandardError => e
+      @logger.error("Unexpected error in listening loop: #{e.message}")
+    end
+
     # Creates and configures a CAN socket.
     #
-    # @return [Socket] The configured CAN socket.
-    def create_socket
+    # @return [Socket, nil] The configured CAN socket, or nil if the socket cannot be opened.
+    def open_can_socket
       socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
       socket.bind(Socket.pack_sockaddr_can(@can_interface))
-      socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, [1, 0].pack("l_2"))
+      socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, TIMEOUT)
       socket
     rescue StandardError => e
       @logger.error("Error creating CAN socket on interface #{@can_interface}: #{e}")
+      nil
     end
 
-    # Receives a CAN message from the socket and parses it.
+    # Receives a CAN message from the given socket and parses it.
     #
-    # @param [Socket] socket The CAN socket to read from.
-    # @return [Hash, nil] Parsed message in the format { id: Integer, data: Array<Integer> },
-    # or nil if no message is received or an error occurs.
-    def receive_message(socket)
-      frame = socket.recv(16)
-      return nil if frame.nil? || frame.size < 8
+    # This method attempts to read a frame from the provided CAN socket. It returns a parsed
+    # message hash in the format `{ id: Integer, data: Array<Integer> }` if a valid frame is received.
+    # If no frame is received, or if an error occurs, the method returns `nil`.
+    #
+    # @param socket [Socket] The CAN socket to read from.
+    # @return [{ id: Integer, data: Array<Integer> }, nil] A hash representing the CAN message, or `nil` if no message
+    #   is received or an error occurs.
+    def receive_message(socket:)
+      frame = socket.recv(FRAME_SIZE)
+      return nil if frame.nil? || frame.size < MIN_FRAME_SIZE
 
-      parse_frame(frame)
+      parse_frame(frame: frame)
     rescue IO::WaitReadable
       nil
     rescue StandardError => e
@@ -108,41 +150,38 @@ module CanMessenger
     # Parses a raw CAN frame into a message hash.
     #
     # @param [String] frame The raw CAN frame.
-    # @return [Hash, nil] Parsed message with :id and :data keys, or nil if the frame is incomplete.
-    def parse_frame(frame)
-      return nil unless frame && frame.size >= 8
+    # @return [{ id: Integer, data: Array<Integer> }, nil] Parsed message with :id and :data keys,
+    #   or nil if the frame is incomplete or an error occurs.
+    def parse_frame(frame:)
+      return nil unless frame && frame.size >= MIN_FRAME_SIZE
 
       id = frame[0..3].unpack1("L>") & 0x1FFFFFFF
       data_length = frame[4].ord & 0x0F
-      data = (frame[8, data_length].unpack("C*") if frame.size >= 8 + data_length)
-
+      data = (frame[MIN_FRAME_SIZE, data_length].unpack("C*") if frame.size >= MIN_FRAME_SIZE + data_length)
       { id: id, data: data }
     rescue StandardError => e
       @logger.error("Error parsing CAN frame: #{e}")
       nil
     end
 
-    # Checks if a message ID matches the given filter.
+    # Checks whether the given message ID matches the specified filter.
     #
-    # Supported filters:
-    # - A single ID (e.g., 0x123)
-    # - A range of IDs (e.g., 0x100..0x200)
-    # - An array of IDs (e.g., [0x123, 0x200, 0x300])
+    # The filter can be one of the following:
+    # - An Integer, which requires an exact match.
+    # - A Range of Integers, where the message ID must fall within the range.
+    # - An Array of Integers, where the message ID must be included in the array.
     #
-    # @param [Integer] message_id The ID of the incoming CAN message.
-    # @param [Integer, Range, Array<Integer>, nil] filter The filter to apply.
-    #   If nil, the method always returns true.
-    # @return [Boolean] True if the message ID matches the filter, false otherwise.
-    def matches_filter?(message_id, filter)
+    # If the filter is nil or unrecognized, the method returns true.
+    #
+    # @param message_id [Integer] The ID of the incoming CAN message.
+    # @param filter [Integer, Range, Array<Integer>, nil] The filter to apply.
+    # @return [Boolean] Returns true if the message ID matches the filter otherwise false.
+    def matches_filter?(message_id:, filter:)
       case filter
-      when Integer
-        message_id == filter
-      when Range
-        filter.cover?(message_id)
-      when Array
-        filter.include?(message_id)
-      else
-        true # No filter or unrecognized filter
+      when Integer then message_id == filter
+      when Range   then filter.cover?(message_id)
+      when Array   then filter.include?(message_id)
+      else true
       end
     end
   end
