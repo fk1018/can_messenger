@@ -40,7 +40,7 @@ module CanMessenger
       hex_id = format("%03X", id)
       hex_data = data.map { |byte| format("%02X", byte) }.join
       command = "cansend #{@can_interface} #{hex_id}##{hex_data}"
-      system(command)
+      system(command) # @todo validate command status
     rescue StandardError => e
       @logger.error("Error sending CAN message (ID: #{id}): #{e}")
     end
