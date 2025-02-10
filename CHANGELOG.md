@@ -5,15 +5,24 @@
 ### Changed
 
 ### Fixed
+
+### Fixed
+
+- Reverted release.yml
+
+## [1.0.1] - 2025-02-09
+
 ## [1.0.1] - 2025-02-09
 
 ### Changed
+
 - Updated the README to include an **Important Considerations** section that outlines environment requirements, API changes (keyword arguments and block requirement), threading and socket management notes, and logging behavior.
 - Made minor documentation clarifications and tweaks to help users avoid common pitfalls.
 
 ## [1.0.0] - 2025-02-09
 
 ### Changed
+
 - **Breaking Change:** Updated the Messenger API to require keyword arguments (e.g., `interface_name:`) for initialization. Existing code using the old API will need to be updated.
 - **Breaking Change:** Updated the send_can_message Method to require keyword arguments (e.g., `id:,data:`) to send messages to the can bus. Existing code using the old API will need to be updated.
 - Refactored `start_listening`.
@@ -24,6 +33,7 @@
 ## [0.2.3] - 2025-02-01
 
 ### Changed
+
 - Updated the internal listening loop in `start_listening` to continue iterating on nil (timeout) responses instead of breaking out, improving reliability.
 - Suppressed log output during tests by injecting a silent logger.
 - Updated the test suite to better handle long-running listening loops and error conditions.
@@ -31,22 +41,26 @@
 ## [0.2.2] - 2024-12-06
 
 ### Changed
+
 - Updated README.md to reflect modern debian package install command.
 
 ## [0.2.1] - 2024-12-06
 
 ### Changed
+
 - Updated `start_listening` RBS signature to include the `filter` parameter, ensuring type definitions match the implementation.
 
 ## [0.2.0] - 2024-12-05
 
 ### Added
+
 - Filtering support for `start_listening` via a `filter` parameter:
   - Single CAN ID.
   - Range of CAN IDs.
   - Array of CAN IDs.
 
 ### Changed
+
 - Refactored `start_listening` to support optional filtering of incoming CAN messages.
 - Documentation updates for `start_listening` in README.
 
