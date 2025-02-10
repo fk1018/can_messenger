@@ -10,7 +10,8 @@
 
 ### Changed
 - **Breaking Change:** Updated the Messenger API to require keyword arguments (e.g., `interface_name:`) for initialization. Existing code using the old API will need to be updated.
-- Refactored `start_listening` to use reusable methods (such as `with_socket` and `process_message`) for streamlined socket operations.
+- **Breaking Change:** Updated the send_can_message Method to require keyword arguments (e.g., `id:,data:`) to send messages to the can bus. Existing code using the old API will need to be updated.
+- Refactored `start_listening`.
 - Enhanced error handling throughout the gem with more detailed logging.
 - Updated type signatures (RBS) and documentation to match the new API.
 - Refactored tests to reflect the new API and improved error handling.
