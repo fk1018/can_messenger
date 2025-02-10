@@ -1,17 +1,15 @@
 # messenger_spec.rb
 # frozen_string_literal: true
 
-require "test_helper"
+require_relative "../../test_helper"
 require "socket"
 require "logger"
-require "stringio" # Ensure StringIO is loaded
+require "stringio"
 
-RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
+RSpec.describe CanMessenger::Messenger do
   before(:all) do
-    unless Socket.const_defined?(:CAN_RAW)
-      Socket.const_set(:CAN_RAW, 1)
-      Socket.const_set(:PF_CAN, 29)
-    end
+    Socket.const_set(:CAN_RAW, 1) unless Socket.const_defined?(:CAN_RAW)
+    Socket.const_set(:PF_CAN, 29) unless Socket.const_defined?(:PF_CAN)
 
     # Mock pack_sockaddr_can if it's not available
     unless Socket.respond_to?(:pack_sockaddr_can)
@@ -23,8 +21,9 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
 
   let(:interface) { "can0" }
   # Create a silent logger that writes to a StringIO so no log output appears during tests.
-  let(:silent_logger) { Logger.new(StringIO.new) }
-  let(:socket) { described_class.new(interface, silent_logger) }
+  let(:log_output) { StringIO.new }
+  let(:silent_logger) { Logger.new(log_output) }
+  let(:socket) { described_class.new(interface_name: interface, logger: silent_logger) }
 
   before do
     allow(socket).to receive(:system).and_return(true)
@@ -50,16 +49,24 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
     let(:command) { "cansend #{interface} #{format("%03X", 0x123)}#DEADBEEF" }
 
     it "sends the message using the correct command" do
-      expect(socket.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])).to be true
+      expect(socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])).to be true
       expect(socket).to have_received(:system).with(command)
+    end
+
+    context "when a StandardError is raised" do
+      it "rescues the error, logs it, and does not raise" do
+        allow(socket).to receive(:system).and_raise(StandardError.new("Test error"))
+        expect(silent_logger).to receive(:error).with(/Error sending CAN message \(ID: 291\):/)
+        expect { socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF]) }.not_to raise_error
+      end
     end
   end
 
-  describe "#start_listening" do # rubocop:disable Metrics/BlockLength
+  describe "#start_listening" do
     let(:mock_socket) { instance_double(Socket) }
 
     before do
-      allow(socket).to receive(:create_socket).and_return(mock_socket)
+      allow(socket).to receive(:open_can_socket).and_return(mock_socket)
       allow(mock_socket).to receive(:close)
     end
 
@@ -82,7 +89,7 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
 
     it "closes the socket after listening" do
       allow(mock_socket).to receive(:recv).and_return(nil)
-      listener_thread = Thread.new { socket.start_listening {} }
+      listener_thread = Thread.new { socket.start_listening { puts "Received message" } }
       sleep 0.2 # Let the listening loop run briefly
       socket.stop_listening
       listener_thread.join(1) # Wait for the thread to finish (with a timeout)
@@ -93,7 +100,7 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
       allow(mock_socket).to receive(:recv).and_raise(IO::WaitReadable)
 
       listener_thread = Thread.new do
-        socket.start_listening {}
+        socket.start_listening
       end
 
       sleep 0.2 # Let the thread run briefly.
@@ -107,7 +114,7 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
       allow(mock_socket).to receive(:recv).and_raise(StandardError)
 
       listener_thread = Thread.new do
-        socket.start_listening {}
+        socket.start_listening
       end
 
       sleep 0.2 # Let the thread run briefly.
@@ -125,14 +132,14 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe "#create_socket" do
+  describe "#open_can_socket" do
     let(:mock_socket) { instance_double(Socket) }
 
     before do
       allow(Socket).to receive(:open).and_return(mock_socket)
       allow(mock_socket).to receive(:bind)
       allow(mock_socket).to receive(:setsockopt)
-      socket.send(:create_socket)
+      socket.send(:open_can_socket)
     end
 
     it "opens a CAN socket with the correct parameters" do
@@ -146,6 +153,15 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
     it "sets the socket options" do
       expect(mock_socket).to have_received(:setsockopt)
     end
+
+    context "when an error occurs" do
+      it "rescues the error, logs it, and returns nil" do
+        allow(Socket).to receive(:open).and_raise(StandardError.new("Test error"))
+        expect(silent_logger).to receive(:error).with(/Error creating CAN socket on interface/)
+        result = socket.send(:open_can_socket)
+        expect(result).to be_nil
+      end
+    end
   end
 
   describe "#receive_message" do
@@ -153,43 +169,61 @@ RSpec.describe CanMessenger::Messenger do # rubocop:disable Metrics/BlockLength
 
     it "returns a parsed message hash from the frame" do
       allow(mock_socket).to receive(:recv).and_return(sample_frame)
-      message = socket.send(:receive_message, mock_socket)
+      message = socket.send(:receive_message, socket: mock_socket)
       expect(message).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF])
     end
 
     it "returns nil if IO::WaitReadable is raised" do
       allow(mock_socket).to receive(:recv).and_raise(IO::WaitReadable)
-      expect(socket.send(:receive_message, mock_socket)).to be_nil
+      expect(socket.send(:receive_message, socket: mock_socket)).to be_nil
+    end
+
+    context "when StandardError is raised" do
+      it "rescues the error, logs it, and returns nil" do
+        allow(mock_socket).to receive(:recv).and_raise(StandardError.new("Test error"))
+        expect(silent_logger).to receive(:error).with(/Error receiving CAN message on interface/)
+        expect(socket.send(:receive_message, socket: mock_socket)).to be_nil
+      end
     end
   end
 
   describe "#parse_frame" do
     it "parses a raw frame into an id and data" do
-      parsed = socket.send(:parse_frame, sample_frame)
+      parsed = socket.send(:parse_frame, frame: sample_frame)
       expect(parsed).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF])
+    end
+
+    context "when an error occurs during parsing" do
+      it "rescues the error, logs it, and returns nil" do
+        # Force any call to unpack1 on any String to raise an error
+        allow_any_instance_of(String).to receive(:unpack1).and_raise(StandardError.new("Test error"))
+        expect(silent_logger).to receive(:error).with(/Error parsing CAN frame: Test error/)
+        result = socket.send(:parse_frame, frame: sample_frame)
+        expect(result).to be_nil
+      end
     end
   end
 
   describe "#matches_filter?" do
-    let(:messenger) { described_class.new("can0", silent_logger) }
+    let(:messenger) { described_class.new(interface_name: "can0", logger: silent_logger) }
 
     it "returns true when the filter is nil" do
-      expect(messenger.send(:matches_filter?, 0x123, nil)).to eq(true)
+      expect(messenger.send(:matches_filter?, message_id: 0x123, filter: nil)).to be(true)
     end
 
     it "matches a single CAN ID" do
-      expect(messenger.send(:matches_filter?, 0x123, 0x123)).to eq(true)
-      expect(messenger.send(:matches_filter?, 0x124, 0x123)).to eq(false)
+      expect(messenger.send(:matches_filter?, message_id: 0x123, filter: 0x123)).to be(true)
+      expect(messenger.send(:matches_filter?, message_id: 0x124, filter: 0x123)).to be(false)
     end
 
     it "matches a range of CAN IDs" do
-      expect(messenger.send(:matches_filter?, 0x123, 0x100..0x200)).to eq(true)
-      expect(messenger.send(:matches_filter?, 0x300, 0x100..0x200)).to eq(false)
+      expect(messenger.send(:matches_filter?, message_id: 0x123, filter: (0x100..0x200))).to be(true)
+      expect(messenger.send(:matches_filter?, message_id: 0x300, filter: (0x100..0x200))).to be(false)
     end
 
     it "matches an array of CAN IDs" do
-      expect(messenger.send(:matches_filter?, 0x123, [0x123, 0x124, 0x125])).to eq(true)
-      expect(messenger.send(:matches_filter?, 0x126, [0x123, 0x124, 0x125])).to eq(false)
+      expect(messenger.send(:matches_filter?, message_id: 0x123, filter: [0x123, 0x124, 0x125])).to be(true)
+      expect(messenger.send(:matches_filter?, message_id: 0x126, filter: [0x123, 0x124, 0x125])).to be(false)
     end
   end
 end

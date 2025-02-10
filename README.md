@@ -44,7 +44,7 @@ To create a new instance of `CanMessenger` and start sending messages:
 ```ruby
 require 'can_messenger'
 
-messenger = CanMessenger::Messenger.new('can0')
+messenger = CanMessenger::Messenger.new(interface_name: 'can0')
 ```
 
 ### Sending CAN Messages
@@ -52,7 +52,7 @@ messenger = CanMessenger::Messenger.new('can0')
 To send a message:
 
 ```ruby
-messenger.send_can_message(0x123, [0xDE, 0xAD, 0xBE, 0xEF])
+messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
 ```
 
 ### Receiving CAN Messages
@@ -105,19 +105,13 @@ messenger.stop_listening
 
 ## Features
 
-- **Send CAN Messages**: Send data to specified CAN IDs.
+- **Send CAN Messages**: Send CAN messages with a specified ID.
 - **Receive CAN Messages**: Continuously listen for messages on a CAN interface.
 - **Logging**: Logs errors and events for debugging and troubleshooting.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests.
-
-To install this gem onto your local machine, run:
-
-```bash
-bundle exec rake install
-```
+After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test:rspec` to run the tests.
 
 ## Contributing
 

@@ -31,4 +31,5 @@ Gem::Specification.new do |spec|
 
   # Development dependencies (optional)
   # spec.add_development_dependency "rspec"       # For testing
+  spec.metadata["rubygems_mfa_required"] = "true"
 end
