@@ -109,10 +109,6 @@ Before using `can_messenger`, please note the following:
 
 - **Environment Requirements:**
 
-  - **Linux Dependency:** This gem relies on Linux's native CAN socket interface and requires the `can-utils` package (specifically, the `cansend` command) to be installed.
-    ```bash
-    sudo apt install can-utils
-    ```
   - **Permissions:** Working with raw sockets may require elevated privileges or membership in a specific group to open and bind to CAN interfaces without running as root.
 
 - **API Changes (v1.0.0 and later):**
