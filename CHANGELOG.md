@@ -2,15 +2,34 @@
 
 ### Added
 
+- (Nothing since last release.)
+
 ### Changed
 
-### Fixed
+- (Nothing since last release.)
 
 ### Fixed
 
-- Reverted release.yml
+- (Nothing since last release.)
 
-## [1.0.1] - 2025-02-09
+## [1.1.0] - 2025-02-10
+
+### Changed
+
+- **Removed dependency on `cansend`**. We now write CAN frames directly via raw sockets.
+- Internal refactoring to support raw-socket–based sending without changing the public API.
+
+### Fixed
+
+## [1.0.3] - 2025-02-09
+
+- Revert release.yml
+
+### Fixed
+
+## [1.0.2] - 2025-02-09
+
+- Bugfix release.yml
 
 ## [1.0.1] - 2025-02-09
 
@@ -67,10 +86,12 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
-
-[1.0.0]: https://github.com/fk1018/can_messenger/compare/v0.2.3...v1.0.0
-[0.2.3]: https://github.com/fk1018/can_messenger/compare/v0.2.2...v0.2.3
-[0.2.2]: https://github.com/fk1018/can_messenger/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/fk1018/can_messenger/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/fk1018/can_messenger/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/fk1018/can_messenger/releases/tag/v0.1.0
+  [1.1.0]: https://github.com/fk1018/can_messenger/compare/v1.0.3...v1.1.0
+  [1.0.3]: https://github.com/fk1018/can_messenger/compare/v1.0.1...v1.0.3
+  [1.0.1]: https://github.com/fk1018/can_messenger/compare/v1.0.0...v1.0.1
+  [1.0.0]: https://github.com/fk1018/can_messenger/compare/v0.2.3...v1.0.0
+  [0.2.3]: https://github.com/fk1018/can_messenger/compare/v0.2.2...v0.2.3
+  [0.2.2]: https://github.com/fk1018/can_messenger/compare/v0.2.1...v0.2.2
+  [0.2.1]: https://github.com/fk1018/can_messenger/compare/v0.2.0...v0.2.1
+  [0.2.0]: https://github.com/fk1018/can_messenger/compare/v0.1.0...v0.2.0
+  [0.1.0]: https://github.com/fk1018/can_messenger/releases/tag/v0.1.0

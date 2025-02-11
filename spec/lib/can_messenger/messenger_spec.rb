@@ -37,7 +37,7 @@ RSpec.describe CanMessenger::Messenger do
 
   describe "#initialize" do
     it "sets the interface instance variable" do
-      expect(socket.instance_variable_get(:@can_interface)).to eq(interface)
+      expect(socket.instance_variable_get(:@interface_name)).to eq(interface)
     end
 
     it "initializes listening as true" do
@@ -46,18 +46,42 @@ RSpec.describe CanMessenger::Messenger do
   end
 
   describe "#send_can_message" do
-    let(:command) { "cansend #{interface} #{format("%03X", 0x123)}#DEADBEEF" }
+    let(:mock_socket) { instance_double(Socket) }
 
-    it "sends the message using the correct command" do
-      expect(socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])).to be true
-      expect(socket).to have_received(:system).with(command)
+    before do
+      # Whenever the code calls `open_can_socket`, return our mock
+      allow(socket).to receive(:open_can_socket).and_return(mock_socket)
+      # We also expect the socket to be closed in `with_socket` ensure block
+      allow(mock_socket).to receive(:close)
     end
 
-    context "when a StandardError is raised" do
-      it "rescues the error, logs it, and does not raise" do
-        allow(socket).to receive(:system).and_raise(StandardError.new("Test error"))
-        expect(silent_logger).to receive(:error).with(/Error sending CAN message \(ID: 291\):/)
-        expect { socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF]) }.not_to raise_error
+    it "builds and writes a raw CAN frame to the socket" do
+      # Expect the messenger to write exactly 16 bytes to our mock_socket
+      # For a big-endian ID = 0x123, DLC=4, data = [0xDE, 0xAD, 0xBE, 0xEF],
+      # a typical 16-byte frame might be:
+      #   00 00 01 23 04 00 00 00 DE AD BE EF 00 00 00 00
+      # Adjust if your code zero-pads differently or uses a different ID mask.
+      expected_frame = [
+        0x00, 0x00, 0x01, 0x23,  # ID in big-endian
+        0x04, 0x00, 0x00, 0x00,  # DLC=4 plus 3 bytes pad
+        0xDE, 0xAD, 0xBE, 0xEF,  # The 4 data bytes
+        0x00, 0x00, 0x00, 0x00   # pad out to 8 data bytes
+      ].pack("C*")
+
+      expect(mock_socket).to receive(:write).with(expected_frame)
+
+      # Call the method
+      socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
+    end
+
+    context "when an error occurs during write" do
+      it "logs the error and does not raise" do
+        # Simulate an error on mock_socket.write
+        allow(mock_socket).to receive(:write).and_raise(StandardError, "Test error")
+
+        expect(silent_logger).to receive(:error).with(/Error sending CAN message \(ID: 291\): Test error/)
+        expect { socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF]) }
+          .not_to raise_error
       end
     end
   end
