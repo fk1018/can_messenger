@@ -11,18 +11,6 @@
 
 ## Installation
 
-Ensure you have `SocketCAN` available on your system. Typically on Linux (e.g., Debian/Ubuntu), you install SocketCAN support with:
-
-```bash
-sudo apt-get install net-tools iproute2
-```
-
-Then bring up your CAN interface (e.g., `can0`) using `ip` commands or a tool like `can-utils` (though this gem no longer depends on `cansend`):
-
-```bash
-sudo ip link set can0 up type can bitrate 500000
-```
-
 To install `can_messenger`, add it to your application's Gemfile:
 
 ```ruby
