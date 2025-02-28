@@ -56,11 +56,6 @@ RSpec.describe CanMessenger::Messenger do
     end
 
     it "builds and writes a raw CAN frame to the socket" do
-      # Expect the messenger to write exactly 16 bytes to our mock_socket
-      # For a big-endian ID = 0x123, DLC=4, data = [0xDE, 0xAD, 0xBE, 0xEF],
-      # a typical 16-byte frame might be:
-      #   00 00 01 23 04 00 00 00 DE AD BE EF 00 00 00 00
-      # Adjust if your code zero-pads differently or uses a different ID mask.
       expected_frame = [
         0x00, 0x00, 0x01, 0x23,  # ID in big-endian
         0x04, 0x00, 0x00, 0x00,  # DLC=4 plus 3 bytes pad
@@ -82,6 +77,31 @@ RSpec.describe CanMessenger::Messenger do
         expect(silent_logger).to receive(:error).with(/Error sending CAN message \(ID: 291\): Test error/)
         expect { socket.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF]) }
           .not_to raise_error
+      end
+    end
+    context "with an extended ID" do
+      it "builds and writes a raw CAN frame with the EFF bit (bit 31) set" do
+        # Suppose we have an extended ID = 0x1ABC
+        # Setting extended_id: true should set bit 31 -> raw_id = 0x80000000 | 0x1ABC
+        extended_id_value = 0x1ABC
+        eff_bit = 0x80000000
+        raw_id = extended_id_value | eff_bit
+
+        # For big-endian, pack this in network order (N == L>):
+        # ID bytes, DLC=4, 3 pad, then data, plus 4 padding data bytes
+        expected_frame = [
+          (raw_id >> 24) & 0xFF,
+          (raw_id >> 16) & 0xFF,
+          (raw_id >> 8)  & 0xFF,
+          raw_id & 0xFF,
+
+          0x04, 0x00, 0x00, 0x00,  # DLC=4 + 3 pad
+          0xDE, 0xAD, 0xBE, 0xEF,  # 4 data bytes
+          0x00, 0x00, 0x00, 0x00   # pad to 8 data bytes
+        ].pack("C*")
+
+        expect(mock_socket).to receive(:write).with(expected_frame)
+        socket.send_can_message(id: extended_id_value, data: [0xDE, 0xAD, 0xBE, 0xEF], extended_id: true)
       end
     end
   end
@@ -108,7 +128,7 @@ RSpec.describe CanMessenger::Messenger do
 
     it "yields received messages to the block" do
       allow(mock_socket).to receive(:recv).and_return(sample_frame, nil)
-      expect(capture_received_messages).to eq([{ id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF] }])
+      expect(capture_received_messages).to eq([{ id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF] }])
     end
 
     it "closes the socket after listening" do
@@ -194,7 +214,7 @@ RSpec.describe CanMessenger::Messenger do
     it "returns a parsed message hash from the frame" do
       allow(mock_socket).to receive(:recv).and_return(sample_frame)
       message = socket.send(:receive_message, socket: mock_socket)
-      expect(message).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF])
+      expect(message).to eq(id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF])
     end
 
     it "returns nil if IO::WaitReadable is raised" do
@@ -212,9 +232,40 @@ RSpec.describe CanMessenger::Messenger do
   end
 
   describe "#parse_frame" do
+    let(:eff_bit)       { 0x80000000 }
+    let(:base_id)       { 0x1ABC }
+    let(:full_extended) { base_id | eff_bit }
+    let(:data_bytes)    { [0xDE, 0xAD, 0xBE, 0xEF] }
+
+    def build_extended_frame(raw_id, data)
+      # For big-endian: pack("N") is the same as pack("L>")
+      frame_id = [raw_id].pack("N")
+      # DLC=4, plus 3 pad
+      dlc_and_pad = [data.size, 0, 0, 0].pack("C*")
+      # data (4 bytes) + pad to 8 bytes
+      payload = data.pack("C*").ljust(8, "\x00")
+      frame_id + dlc_and_pad + payload
+    end
+
+    it "correctly identifies an extended frame and extracts the ID" do
+      raw_frame = build_extended_frame(full_extended, data_bytes)
+
+      parsed = socket.send(:parse_frame, frame: raw_frame)
+      expect(parsed).not_to be_nil
+
+      # We expect parse_frame to report extended: true
+      expect(parsed[:extended]).to eq(true)
+
+      # The final ID should be the lower 29 bits of raw_id
+      # i.e., 0x1ABC
+      expect(parsed[:id]).to eq(base_id)
+
+      expect(parsed[:data]).to eq(data_bytes)
+    end
+
     it "parses a raw frame into an id and data" do
       parsed = socket.send(:parse_frame, frame: sample_frame)
-      expect(parsed).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF])
+      expect(parsed).to eq(id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF])
     end
 
     context "when an error occurs during parsing" do
