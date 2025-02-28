@@ -51,13 +51,13 @@ messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
 
 > **Note:** Under the hood, the gem now writes CAN frames to a raw socket instead of calling `cansend`. No external dependencies are required beyond raw-socket permissions.
 
-If you need to send an extended CAN frame (29-bit ID), set extended_id: true. The gem then sets the Extended Frame Format (EFF) bit automatically:### Receiving CAN Messages
+If you need to send an extended CAN frame (29-bit ID), set extended_id: true. The gem then sets the Extended Frame Format (EFF) bit automatically:
 
 ```ruby
 messenger.send_can_message(id: 0x123456, data: [0x01, 0x02, 0x03], extended_id: true)
 ```
 
-### Listen to CAN Messages
+### Receiving CAN Messages
 
 To listen for incoming messages, set up a listener:
 
