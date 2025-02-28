@@ -12,6 +12,24 @@
 
 - (Nothing since last release.)
 
+## [1.2.0] - 2025-02-28
+
+### Added
+
+- **Explicit extended CAN ID support**.
+  - Added an `extended_id: false` parameter to `send_can_message`, which, if set to `true`, sets the Extended Frame Format bit (bit 31) in the CAN ID.
+  - Updated `parse_frame` to detect and report `extended: true` when the EFF bit is set in incoming frames.
+  - Added corresponding tests for sending and receiving extended CAN frames.
+
+### Changed
+
+- _No breaking changes_, but internal refactoring around how CAN IDs are packed and unpacked.
+  - Removed the masking of bit 31 in `unpack_frame_id`, ensuring extended frames are no longer silently treated as standard frames.
+
+### Fixed
+
+- (Nothing since last release.)
+
 ## [1.1.0] - 2025-02-10
 
 ### Changed
@@ -86,6 +104,7 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
+  [1.2.0]: https://github.com/fk1018/can_messenger/compare/v1.1.0...v1.2.0
   [1.1.0]: https://github.com/fk1018/can_messenger/compare/v1.0.3...v1.1.0
   [1.0.3]: https://github.com/fk1018/can_messenger/compare/v1.0.1...v1.0.3
   [1.0.1]: https://github.com/fk1018/can_messenger/compare/v1.0.0...v1.0.1

@@ -15,7 +15,7 @@ module CanMessenger
   #   messenger.start_listening do |message|
   #     puts "Received: ID=#{message[:id]}, Data=#{message[:data].map { |b| '0x%02X' % b }}"
   #   end
-  class Messenger
+  class Messenger # rubocop:disable Metrics/ClassLength
     FRAME_SIZE = 16
     MIN_FRAME_SIZE = 8
     TIMEOUT = [1, 0].pack("l_2")
@@ -38,9 +38,9 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message (up to 29 bits for extended IDs).
     # @param [Array<Integer>] data The data bytes of the CAN message (0 to 8 bytes).
     # @return [void]
-    def send_can_message(id:, data:)
+    def send_can_message(id:, data:, extended_id: false)
       with_socket do |socket|
-        frame = build_can_frame(id: id, data: data)
+        frame = build_can_frame(id: id, data: data, extended_id: extended_id)
         socket.write(frame)
       end
     rescue StandardError => e
@@ -111,13 +111,16 @@ module CanMessenger
     # @param id [Integer] the CAN ID
     # @param data [Array<Integer>] up to 8 bytes
     # @return [String] a 16-byte string representing a classic CAN frame
-    def build_can_frame(id:, data:)
+    def build_can_frame(id:, data:, extended_id: false)
       raise ArgumentError, "CAN data cannot exceed 8 bytes" if data.size > 8
 
-      # Apply 29-bit mask if extended ID is used
+      # Mask the ID to 29 bits
       can_id = id & 0x1FFFFFFF
 
-      # Pack the ID as 4 bytes in big-endian or little-endian
+      # If extended_id == true, set bit 31 (CAN_EFF_FLAG)
+      can_id |= 0x80000000 if extended_id
+
+      # Pack the 4‐byte ID (big-endian or little-endian)
       id_bytes = @endianness == :big ? [can_id].pack("L>") : [can_id].pack("V")
 
       # 1 byte for DLC, then 3 bytes of padding
@@ -126,7 +129,7 @@ module CanMessenger
       # Up to 8 data bytes, pad with 0 if fewer
       payload = data.pack("C*").ljust(8, "\x00")
 
-      # Total 16 bytes
+      # Total 16 bytes (4 for ID, 1 for DLC, 3 padding, 8 data)
       id_bytes + dlc_and_pad + payload
     end
 
@@ -166,25 +169,40 @@ module CanMessenger
     #
     # @param [String] frame
     # @return [Hash, nil]
-    def parse_frame(frame:)
+    def parse_frame(frame:) # rubocop:disable Metrics/MethodLength
       return nil unless frame && frame.size >= MIN_FRAME_SIZE
 
-      # Big-endian ID in bytes [0..3]
-      id = unpack_frame_id(frame: frame)
+      raw_id = unpack_frame_id(frame: frame)
+
+      # Determine if EFF bit is set
+      extended = raw_id.anybits?(0x80000000)
+      # or raw_id.anybits?(0x80000000) if your Ruby version supports `Integer#anybits?`
+
+      # Now mask off everything except the lower 29 bits
+      id = raw_id & 0x1FFFFFFF
 
       # DLC is the lower 4 bits of byte 4
       data_length = frame[4].ord & 0x0F
 
-      # Data follows at byte index 8, up to data_length bytes
-      data = (frame[MIN_FRAME_SIZE, data_length].unpack("C*") if frame.size >= MIN_FRAME_SIZE + data_length)
-      { id: id, data: data }
+      # Extract data
+      data = if frame.size >= MIN_FRAME_SIZE + data_length
+               frame[MIN_FRAME_SIZE, data_length].unpack("C*")
+             else
+               []
+             end
+
+      { id: id, data: data, extended: extended }
     rescue StandardError => e
       @logger.error("Error parsing CAN frame: #{e}")
       nil
     end
 
     def unpack_frame_id(frame:)
-      @endianness == :big ? frame[0..3].unpack1("L>") & 0x1FFFFFFF : frame[0..3].unpack1("V") & 0x1FFFFFFF
+      if @endianness == :big
+        frame[0..3].unpack1("L>")
+      else
+        frame[0..3].unpack1("V")
+      end
     end
 
     # Checks whether the given message ID matches the specified filter.
