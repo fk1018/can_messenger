@@ -4,7 +4,7 @@ module CanMessenger
     @logger: Logger
     @listening: bool
 
-    def initialize: (interface_name: String, logger: Logger?) -> void
+    def initialize: (interface_name: String, logger: Logger?, endianness: Symbol) -> void
     def send_can_message: (id: Integer, data: Array[Integer]) -> void
     def start_listening: (
         ?filter: (Integer | Range[Integer] | Array[Integer])?
