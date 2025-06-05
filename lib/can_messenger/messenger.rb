@@ -43,6 +43,8 @@ module CanMessenger
         frame = build_can_frame(id: id, data: data, extended_id: extended_id)
         socket.write(frame)
       end
+    rescue ArgumentError
+      raise
     rescue StandardError => e
       @logger.error("Error sending CAN message (ID: #{id}): #{e}")
     end

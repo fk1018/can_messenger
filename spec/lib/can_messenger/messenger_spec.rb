@@ -104,6 +104,14 @@ RSpec.describe CanMessenger::Messenger do
         socket.send_can_message(id: extended_id_value, data: [0xDE, 0xAD, 0xBE, 0xEF], extended_id: true)
       end
     end
+
+    context "when data length exceeds eight bytes" do
+      it "raises ArgumentError" do
+        expect do
+          socket.send_can_message(id: 0x123, data: Array.new(9, 0xFF))
+        end.to raise_error(ArgumentError)
+      end
+    end
   end
 
   describe "#start_listening" do
