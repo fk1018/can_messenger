@@ -1,4 +1,4 @@
-# test/test_helper.rb
+# spec/test_helper.rb
 # frozen_string_literal: true
 
 require "simplecov"
