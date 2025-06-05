@@ -167,6 +167,30 @@ RSpec.describe CanMessenger::Messenger do
 
       expect(listener_thread).not_to be_alive
     end
+
+    it "can be started again after being stopped" do
+      allow(mock_socket).to receive(:recv).and_return(sample_frame, nil, sample_frame, nil)
+
+      # First run to stop the listener
+      listener_thread = Thread.new do
+        socket.start_listening do |_message|
+          socket.stop_listening
+        end
+      end
+      listener_thread.join(1)
+
+      # Reset expectation to capture messages from second run
+      received = []
+      listener_thread = Thread.new do
+        socket.start_listening do |message|
+          received << message
+          socket.stop_listening
+        end
+      end
+      listener_thread.join(1)
+
+      expect(received).to eq([{ id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF] }])
+    end
   end
 
   describe "#stop_listening" do

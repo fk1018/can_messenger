@@ -63,6 +63,8 @@ module CanMessenger
     def start_listening(filter: nil, &block)
       return @logger.error("No block provided to handle messages.") unless block_given?
 
+      @listening = true
+
       with_socket do |socket|
         @logger.info("Started listening on #{@interface_name}")
         process_message(socket, filter, &block) while @listening
