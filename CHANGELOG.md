@@ -12,6 +12,19 @@
 
 - (Nothing since last release.)
 
+## [1.2.1] - 2025-06-05
+
+### Changed
+
+- `send_can_message` now raises `ArgumentError` when data length exceeds eight bytes.
+- Updated RBS `initialize` signature to include the `endianness` argument.
+- Fixed formatting in README around extended CAN frames.
+- Clarified spec helper comment.
+
+### Fixed
+
+- Addressed a listener restart bug allowing `start_listening` to be called again.
+
 ## [1.2.0] - 2025-02-28
 
 ### Added
@@ -104,6 +117,7 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
+  [1.2.1]: https://github.com/fk1018/can_messenger/compare/v1.2.0...v1.2.1
   [1.2.0]: https://github.com/fk1018/can_messenger/compare/v1.1.0...v1.2.0
   [1.1.0]: https://github.com/fk1018/can_messenger/compare/v1.0.3...v1.1.0
   [1.0.3]: https://github.com/fk1018/can_messenger/compare/v1.0.1...v1.0.3
