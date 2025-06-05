@@ -167,6 +167,37 @@ RSpec.describe CanMessenger::Messenger do
 
       expect(listener_thread).not_to be_alive
     end
+
+    it "can restart listening after stopping" do
+      first_socket = instance_double(Socket)
+      second_socket = instance_double(Socket)
+
+      allow(socket).to receive(:open_can_socket).and_return(first_socket, second_socket)
+      allow(first_socket).to receive(:close)
+      allow(second_socket).to receive(:close)
+
+      allow(first_socket).to receive(:recv).and_return(sample_frame, nil)
+      messages_round1 = []
+      Thread.new do
+        socket.start_listening do |msg|
+          messages_round1 << msg
+          socket.stop_listening
+        end
+      end.join(1)
+
+      allow(second_socket).to receive(:recv).and_return(sample_frame, nil)
+      messages_round2 = []
+      Thread.new do
+        socket.start_listening do |msg|
+          messages_round2 << msg
+          socket.stop_listening
+        end
+      end.join(1)
+
+      expected_message = { id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF] }
+      expect(messages_round1).to eq([expected_message])
+      expect(messages_round2).to eq([expected_message])
+    end
   end
 
   describe "#stop_listening" do
