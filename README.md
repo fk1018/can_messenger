@@ -57,6 +57,15 @@ If you need to send an extended CAN frame (29-bit ID), set extended_id: true. Th
 messenger.send_can_message(id: 0x123456, data: [0x01, 0x02, 0x03], extended_id: true)
 ```
 
+If you need to work with **CAN FD** frames (up to 64 data bytes), enable the mode per call or when initializing the messenger:
+
+```ruby
+messenger_fd = CanMessenger::Messenger.new(interface_name: 'can0', can_fd: true)
+messenger_fd.send_can_message(id: 0x123, data: Array.new(12, 0xFF))
+# Or on demand
+messenger.send_can_message(id: 0x123, data: Array.new(12, 0xFF), can_fd: true)
+```
+
 ### Receiving CAN Messages
 
 To listen for incoming messages, set up a listener:
@@ -147,11 +156,11 @@ Before using `can_messenger`, please note the following:
 
 - **CAN Frame Format Assumptions:**
   - By default, the gem uses **big-endian** packing for CAN IDs. If you integrate with a system using little-endian, you may need to adjust or specify an endianness in the code.
-  - The gem expects a standard CAN frame layout (16 bytes total, with the first 4 for the ID, followed by 1 byte for DLC, 3 bytes of padding, and up to 8 bytes of data). If you work with non-standard frames or CAN FD (64-byte data), you’ll need to customize the parsing/sending logic.
+  - The gem expects a standard CAN frame layout (16 bytes total, with the first 4 for the ID, followed by 1 byte for DLC, 3 bytes of padding, and up to 8 bytes of data). **CAN FD** frames (up to 64 bytes) are supported when enabled.
 
 ## Features
 
-- **Send CAN Messages**: Send CAN messages (up to 8 data bytes).
+- **Send CAN Messages**: Send CAN messages (up to 8 data bytes, or 64 bytes with CAN FD enabled).
 - **Receive CAN Messages**: Continuously listen for messages on a CAN interface.
 - **Filtering**: Optional ID filters for incoming messages (single ID, range, or array).
 - **Logging**: Logs errors and events for debugging/troubleshooting.
