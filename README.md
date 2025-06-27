@@ -12,7 +12,6 @@
 ## Requirements
 
 - Ruby 3.0 or higher.
-- RBS type definitions live in the `sig/` directory for optional static type checking.
 
 ## Installation
 
