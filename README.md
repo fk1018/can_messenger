@@ -9,6 +9,11 @@
 
 `can_messenger` is a Ruby gem that provides an interface for communicating over the CAN bus, allowing users to send and receive CAN messages `via raw SocketCAN sockets`. This gem is designed for developers who need an easy way to interact with CAN-enabled devices on Linux.
 
+## Requirements
+
+- Ruby 3.0 or higher.
+- RBS type definitions live in the `sig/` directory for optional static type checking.
+
 ## Installation
 
 To install `can_messenger`, add it to your application's Gemfile:
