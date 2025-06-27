@@ -2,11 +2,11 @@
 
 ### Added
 
-- (Nothing since last release.)
+- Optional **CAN FD** support for sending and receiving up to 64-byte frames.
 
 ### Changed
 
-- (Nothing since last release.)
+- Updated APIs to accept a `can_fd:` flag on initialization and message methods.
 
 ### Fixed
 

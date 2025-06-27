@@ -4,20 +4,31 @@ module CanMessenger
     @logger: Logger
     @listening: bool
 
-    def initialize: (interface_name: String, logger: Logger?, endianness: Symbol) -> void
-    def send_can_message: (id: Integer, data: Array[Integer]) -> void
+    def initialize: (
+        interface_name: String,
+        logger: Logger?,
+        endianness: Symbol,
+        ?can_fd: bool
+      ) -> void
+    def send_can_message: (
+        id: Integer,
+        data: Array[Integer],
+        ?extended_id: bool,
+        ?can_fd: bool
+      ) -> void
     def start_listening: (
-        ?filter: (Integer | Range[Integer] | Array[Integer])?
-      ) { (message: { id: Integer, data: Array[Integer] }) -> void } -> void
+        ?filter: (Integer | Range[Integer] | Array[Integer])?,
+        ?can_fd: bool
+      ) { (message: { id: Integer, data: Array[Integer], extended: bool }) -> void } -> void
     def stop_listening: () -> void
 
     private
 
-    def open_can_socket: () -> (Socket | nil)
-    def with_socket: () { (socket: Socket) -> void } -> void
-    def process_message: (socket: Socket, filter: (Integer | Range[Integer] | Array[Integer])?, &block: (Proc { (message: { id: Integer, data: Array[Integer] }) -> void })) -> void
-    def receive_message: (socket: Socket) -> ({ id: Integer, data: Array[Integer] } | nil)
-    def parse_frame: (frame: String) -> ({ id: Integer, data: Array[Integer] } | nil)
+    def open_can_socket: (?can_fd: bool) -> (Socket | nil)
+    def with_socket: (?can_fd: bool) { (socket: Socket) -> void } -> void
+    def process_message: (socket: Socket, filter: (Integer | Range[Integer] | Array[Integer])?, bool, &block: (Proc { (message: { id: Integer, data: Array[Integer], extended: bool }) -> void })) -> void
+    def receive_message: (socket: Socket, ?can_fd: bool) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+    def parse_frame: (frame: String, ?can_fd: bool) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
     def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool
   end
 end

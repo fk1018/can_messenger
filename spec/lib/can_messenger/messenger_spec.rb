@@ -10,6 +10,8 @@ RSpec.describe CanMessenger::Messenger do
   before(:all) do
     Socket.const_set(:CAN_RAW, 1) unless Socket.const_defined?(:CAN_RAW)
     Socket.const_set(:PF_CAN, 29) unless Socket.const_defined?(:PF_CAN)
+    Socket.const_set(:CAN_RAW_FD_FRAMES, 1) unless Socket.const_defined?(:CAN_RAW_FD_FRAMES)
+    Socket.const_set(:SOL_CAN_RAW, 101) unless Socket.const_defined?(:SOL_CAN_RAW)
 
     # Mock pack_sockaddr_can if it's not available
     unless Socket.respond_to?(:pack_sockaddr_can)
@@ -102,6 +104,21 @@ RSpec.describe CanMessenger::Messenger do
 
         expect(mock_socket).to receive(:write).with(expected_frame)
         socket.send_can_message(id: extended_id_value, data: [0xDE, 0xAD, 0xBE, 0xEF], extended_id: true)
+      end
+    end
+
+    context "when sending a CAN FD frame" do
+      it "builds and writes a CAN FD frame to the socket" do
+        data = Array.new(64, 0xAA)
+        expected_frame = [
+          0x00, 0x00, 0x01, 0x23,
+          64, 0x00, 0x00, 0x00,
+          *Array.new(64, 0xAA)
+        ].pack("C*")
+
+        expect(mock_socket).to receive(:write).with(expected_frame)
+
+        socket.send_can_message(id: 0x123, data: data, can_fd: true)
       end
     end
 
@@ -230,6 +247,14 @@ RSpec.describe CanMessenger::Messenger do
       expect(mock_socket).to have_received(:setsockopt)
     end
 
+    context "when CAN FD is enabled" do
+      it "sets the CAN_RAW_FD_FRAMES option" do
+        allow(mock_socket).to receive(:setsockopt)
+        socket.send(:open_can_socket, can_fd: true)
+        expect(mock_socket).to have_received(:setsockopt).with(Socket::SOL_CAN_RAW, Socket::CAN_RAW_FD_FRAMES, 1)
+      end
+    end
+
     context "when an error occurs" do
       it "rescues the error, logs it, and returns nil" do
         allow(Socket).to receive(:open).and_raise(StandardError.new("Test error"))
@@ -298,6 +323,18 @@ RSpec.describe CanMessenger::Messenger do
     it "parses a raw frame into an id and data" do
       parsed = socket.send(:parse_frame, frame: sample_frame)
       expect(parsed).to eq(id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF])
+    end
+
+    it "parses a CAN FD frame" do
+      data = Array.new(64) { |i| i }
+      raw_id = 0x123
+      frame_id = [raw_id].pack("N")
+      dlc_and_pad = [data.size, 0, 0, 0].pack("C*")
+      payload = data.pack("C*")
+      raw_frame = frame_id + dlc_and_pad + payload
+
+      parsed = socket.send(:parse_frame, frame: raw_frame, can_fd: true)
+      expect(parsed).to eq(id: raw_id, extended: false, data: data)
     end
 
     context "when an error occurs during parsing" do
