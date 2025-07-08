@@ -17,7 +17,9 @@ module CanMessenger
   #   end
   class Messenger # rubocop:disable Metrics/ClassLength
     FRAME_SIZE = 16
+    CANFD_FRAME_SIZE = 72
     MIN_FRAME_SIZE = 8
+    MAX_FD_DATA = 64
     TIMEOUT = [1, 0].pack("l_2")
 
     # Initializes a new Messenger instance.
@@ -26,11 +28,12 @@ module CanMessenger
     # @param [Logger, nil] logger Optional logger for error handling and debug information.
     # @param [Symbol] endianness The endianness of the CAN ID (default: :big) can be :big or :little.
     # @return [void]
-    def initialize(interface_name:, logger: nil, endianness: :big)
+    def initialize(interface_name:, logger: nil, endianness: :big, can_fd: false)
       @interface_name = interface_name
       @logger = logger || Logger.new($stdout)
       @listening = true # Control flag for listening loop
       @endianness    = endianness # :big or :little
+      @can_fd        = can_fd
     end
 
     # Sends a CAN message by writing directly to a raw CAN socket
@@ -38,9 +41,11 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message (up to 29 bits for extended IDs).
     # @param [Array<Integer>] data The data bytes of the CAN message (0 to 8 bytes).
     # @return [void]
-    def send_can_message(id:, data:, extended_id: false)
-      with_socket do |socket|
-        frame = build_can_frame(id: id, data: data, extended_id: extended_id)
+    def send_can_message(id:, data:, extended_id: false, can_fd: nil)
+      use_fd = can_fd.nil? ? @can_fd : can_fd
+
+      with_socket(can_fd: use_fd) do |socket|
+        frame = build_can_frame(id: id, data: data, extended_id: extended_id, can_fd: use_fd)
         socket.write(frame)
       end
     rescue ArgumentError
@@ -62,14 +67,16 @@ module CanMessenger
     #   - `:id` [Integer] the CAN message ID
     #   - `:data` [Array<Integer>] the message data bytes
     # @return [void]
-    def start_listening(filter: nil, &block)
+    def start_listening(filter: nil, can_fd: nil, &block)
       return @logger.error("No block provided to handle messages.") unless block_given?
 
       @listening = true
 
-      with_socket do |socket|
+      use_fd = can_fd.nil? ? @can_fd : can_fd
+
+      with_socket(can_fd: use_fd) do |socket|
         @logger.info("Started listening on #{@interface_name}")
-        process_message(socket, filter, &block) while @listening
+        process_message(socket, filter, use_fd, &block) while @listening
       end
     end
 
@@ -88,8 +95,8 @@ module CanMessenger
     #
     # @yield [socket] An open CAN socket.
     # @return [void]
-    def with_socket
-      socket = open_can_socket
+    def with_socket(can_fd: @can_fd)
+      socket = open_can_socket(can_fd: can_fd)
       return @logger.error("Failed to open socket, cannot continue operation.") if socket.nil?
 
       yield socket
@@ -100,23 +107,32 @@ module CanMessenger
     # Creates and configures a CAN socket bound to @interface_name.
     #
     # @return [Socket, nil] The configured CAN socket, or nil if the socket cannot be opened.
-    def open_can_socket
+    def open_can_socket(can_fd: @can_fd) # rubocop:disable Metrics/MethodLength
       socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
       socket.bind(Socket.pack_sockaddr_can(@interface_name))
       socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, TIMEOUT)
+      if can_fd && Socket.const_defined?(:CAN_RAW_FD_FRAMES)
+        socket.setsockopt(Socket.const_defined?(:SOL_CAN_RAW) ? Socket::SOL_CAN_RAW : Socket::CAN_RAW,
+                          Socket::CAN_RAW_FD_FRAMES, 1)
+      end
       socket
     rescue StandardError => e
       @logger.error("Error creating CAN socket on interface #{@interface_name}: #{e}")
       nil
     end
 
-    # Builds a raw CAN frame for SocketCAN, big-endian ID, 1-byte DLC, up to 8 data bytes, and 3 padding bytes.
+    # Builds a raw CAN or CAN FD frame for SocketCAN.
     #
     # @param id [Integer] the CAN ID
-    # @param data [Array<Integer>] up to 8 bytes
-    # @return [String] a 16-byte string representing a classic CAN frame
-    def build_can_frame(id:, data:, extended_id: false)
-      raise ArgumentError, "CAN data cannot exceed 8 bytes" if data.size > 8
+    # @param data [Array<Integer>] data bytes (up to 8 for classic, 64 for CAN FD)
+    # @param can_fd [Boolean] whether to build a CAN FD frame
+    # @return [String] the packed CAN frame
+    def build_can_frame(id:, data:, extended_id: false, can_fd: false) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/PerceivedComplexity
+      if can_fd
+        raise ArgumentError, "CAN FD data cannot exceed #{MAX_FD_DATA} bytes" if data.size > MAX_FD_DATA
+      elsif data.size > 8
+        raise ArgumentError, "CAN data cannot exceed 8 bytes"
+      end
 
       # Mask the ID to 29 bits
       can_id = id & 0x1FFFFFFF
@@ -127,13 +143,15 @@ module CanMessenger
       # Pack the 4‐byte ID (big-endian or little-endian)
       id_bytes = @endianness == :big ? [can_id].pack("L>") : [can_id].pack("V")
 
-      # 1 byte for DLC, then 3 bytes of padding
+      # 1 byte for DLC/length, then 3 bytes for flags/reserved
       dlc_and_pad = [data.size, 0, 0, 0].pack("C*")
 
-      # Up to 8 data bytes, pad with 0 if fewer
-      payload = data.pack("C*").ljust(8, "\x00")
+      payload = if can_fd
+                  data.pack("C*").ljust(MAX_FD_DATA, "\x00")
+                else
+                  data.pack("C*").ljust(8, "\x00")
+                end
 
-      # Total 16 bytes (4 for ID, 1 for DLC, 3 padding, 8 data)
       id_bytes + dlc_and_pad + payload
     end
 
@@ -143,8 +161,8 @@ module CanMessenger
     # @param filter [Integer, Range, Array<Integer>, nil] Optional filter for CAN IDs.
     # @yield [message] Yields the message if it passes filtering.
     # @return [void]
-    def process_message(socket, filter)
-      message = receive_message(socket: socket)
+    def process_message(socket, filter, can_fd)
+      message = receive_message(socket: socket, can_fd: can_fd)
       return if message.nil?
       return if filter && !matches_filter?(message_id: message[:id], filter: filter)
 
@@ -157,11 +175,12 @@ module CanMessenger
     #
     # @param socket [Socket]
     # @return [Hash, nil]
-    def receive_message(socket:)
-      frame = socket.recv(FRAME_SIZE)
+    def receive_message(socket:, can_fd: false)
+      frame_size = can_fd ? CANFD_FRAME_SIZE : FRAME_SIZE
+      frame = socket.recv(frame_size)
       return nil if frame.nil? || frame.size < MIN_FRAME_SIZE
 
-      parse_frame(frame: frame)
+      parse_frame(frame: frame, can_fd: can_fd)
     rescue IO::WaitReadable
       nil
     rescue StandardError => e
@@ -173,8 +192,10 @@ module CanMessenger
     #
     # @param [String] frame
     # @return [Hash, nil]
-    def parse_frame(frame:) # rubocop:disable Metrics/MethodLength
+    def parse_frame(frame:, can_fd: nil) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/PerceivedComplexity
       return nil unless frame && frame.size >= MIN_FRAME_SIZE
+
+      use_fd = can_fd.nil? ? frame.size >= CANFD_FRAME_SIZE : can_fd
 
       raw_id = unpack_frame_id(frame: frame)
 
@@ -185,8 +206,11 @@ module CanMessenger
       # Now mask off everything except the lower 29 bits
       id = raw_id & 0x1FFFFFFF
 
-      # DLC is the lower 4 bits of byte 4
-      data_length = frame[4].ord & 0x0F
+      data_length = if use_fd
+                      frame[4].ord
+                    else
+                      frame[4].ord & 0x0F
+                    end
 
       # Extract data
       data = if frame.size >= MIN_FRAME_SIZE + data_length
