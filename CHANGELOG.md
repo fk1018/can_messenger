@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+## [1.4.0] - 2025-07-24
+
+### Added
+
+- **DBC parsing** with helpers to encode and decode messages by name.
+- Messenger methods now accept optional `dbc:` objects for automatic
+  encoding/decoding.
+
+### Changed
+
+- Documented DBC usage in the README.
+
+### Fixed
+
+- (Nothing since last release.)
+
 ## [1.3.0] - 2025-06-27
 
 ### Added
@@ -119,6 +135,7 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
+  [1.4.0]: https://github.com/fk1018/can_messenger/compare/v1.3.0...v1.4.0
   [1.3.0]: https://github.com/fk1018/can_messenger/compare/v1.2.1...v1.3.0
   [1.2.1]: https://github.com/fk1018/can_messenger/compare/v1.2.0...v1.2.1
   [1.2.0]: https://github.com/fk1018/can_messenger/compare/v1.1.0...v1.2.0
