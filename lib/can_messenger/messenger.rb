@@ -41,7 +41,15 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message (up to 29 bits for extended IDs).
     # @param [Array<Integer>] data The data bytes of the CAN message (0 to 8 bytes).
     # @return [void]
-    def send_can_message(id:, data:, extended_id: false, can_fd: nil)
+    def send_can_message(id: nil, data: nil, extended_id: false, can_fd: nil, dbc: nil, message_name: nil, signals: {}) # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
+      if dbc && message_name
+        encoded = dbc.encode_can(message_name, signals)
+        id = encoded[:id]
+        data = encoded[:data]
+      end
+
+      raise ArgumentError, "id and data are required" if id.nil? || data.nil?
+
       use_fd = can_fd.nil? ? @can_fd : can_fd
 
       with_socket(can_fd: use_fd) do |socket|
@@ -67,7 +75,7 @@ module CanMessenger
     #   - `:id` [Integer] the CAN message ID
     #   - `:data` [Array<Integer>] the message data bytes
     # @return [void]
-    def start_listening(filter: nil, can_fd: nil, &block)
+    def start_listening(filter: nil, can_fd: nil, dbc: nil, &block)
       return @logger.error("No block provided to handle messages.") unless block_given?
 
       @listening = true
@@ -76,7 +84,7 @@ module CanMessenger
 
       with_socket(can_fd: use_fd) do |socket|
         @logger.info("Started listening on #{@interface_name}")
-        process_message(socket, filter, use_fd, &block) while @listening
+        process_message(socket, filter, use_fd, dbc, &block) while @listening
       end
     end
 
@@ -161,12 +169,17 @@ module CanMessenger
     # @param filter [Integer, Range, Array<Integer>, nil] Optional filter for CAN IDs.
     # @yield [message] Yields the message if it passes filtering.
     # @return [void]
-    def process_message(socket, filter, can_fd)
+    def process_message(socket, filter, can_fd, dbc, &block)
       message = receive_message(socket: socket, can_fd: can_fd)
       return if message.nil?
       return if filter && !matches_filter?(message_id: message[:id], filter: filter)
 
-      yield(message)
+      if dbc
+        decoded = dbc.decode_can(message[:id], message[:data])
+        message[:decoded] = decoded if decoded
+      end
+
+      block.call(message)
     rescue StandardError => e
       @logger.error("Unexpected error in listening loop: #{e.message}")
     end

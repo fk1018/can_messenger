@@ -370,4 +370,62 @@ RSpec.describe CanMessenger::Messenger do
       expect(messenger.send(:matches_filter?, message_id: 0x126, filter: [0x123, 0x124, 0x125])).to be(false)
     end
   end
+
+  context "with DBC integration" do
+    let(:dbc_text) do
+      <<~DBC
+        BO_ 256 Example: 8 ExampleNode
+        SG_ Speed : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+        SG_ Temp : 8|8@1+ (0.5,0) [0|127.5] "" Vector__XXX
+      DBC
+    end
+
+    let(:dbc) { CanMessenger::DBC.new(dbc_text) }
+    let(:mock_socket) { instance_double(Socket) }
+
+    before do
+      allow(socket).to receive(:open_can_socket).and_return(mock_socket)
+      allow(mock_socket).to receive(:close)
+    end
+
+    it "encodes messages using the DBC before sending" do
+      encoded = dbc.encode_can("Example", Speed: 10, Temp: 20)
+      expected = socket.send(:build_can_frame, id: encoded[:id], data: encoded[:data])
+      expect(mock_socket).to receive(:write).with(expected)
+      socket.send_can_message(dbc: dbc, message_name: "Example", signals: { Speed: 10, Temp: 20 })
+    end
+
+    it "decodes messages using the DBC when listening" do
+      encoded = dbc.encode_can("Example", Speed: 10, Temp: 20)
+      raw_frame = socket.send(:build_can_frame, id: encoded[:id], data: encoded[:data])
+      allow(mock_socket).to receive(:recv).and_return(raw_frame, nil)
+
+      received = []
+      listener_thread = Thread.new do
+        socket.start_listening(dbc: dbc) do |msg|
+          received << msg
+          socket.stop_listening
+        end
+      end
+      listener_thread.join(1)
+
+      expect(received.first[:decoded][:name]).to eq("Example")
+      expect(received.first[:decoded][:signals][:Speed]).to eq(10)
+      expect(received.first[:decoded][:signals][:Temp]).to eq(20)
+    end
+
+    it "logs unexpected errors during message handling" do
+      allow(mock_socket).to receive(:recv).and_return(sample_frame, nil)
+      expect(silent_logger).to receive(:error).with(/Unexpected error in listening loop: Boom/)
+
+      listener_thread = Thread.new do
+        socket.start_listening do |_msg|
+          raise "Boom"
+        end
+      end
+      sleep 0.1
+      socket.stop_listening
+      listener_thread.join(1)
+    end
+  end
 end

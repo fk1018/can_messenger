@@ -108,6 +108,24 @@ The `start_listening` method supports filtering incoming messages based on CAN I
   end
   ```
 
+### Working with DBC Files
+
+Parse a DBC file and let the messenger encode and decode messages automatically:
+
+```ruby
+dbc = CanMessenger::DBC.load('example.dbc')
+
+# Encode using signal values
+messenger.send_can_message(dbc: dbc, message_name: 'Example', signals: { Speed: 100 })
+
+# Decode received frames
+messenger.start_listening(dbc: dbc) do |msg|
+  if msg[:decoded]
+    puts "#{msg[:decoded][:name]} => #{msg[:decoded][:signals]}"
+  end
+end
+```
+
 ### Stopping the Listener
 
 To stop listening, use:
@@ -168,6 +186,7 @@ Before using `can_messenger`, please note the following:
 - **Receive CAN Messages**: Continuously listen for messages on a CAN interface.
 - **Filtering**: Optional ID filters for incoming messages (single ID, range, or array).
 - **Logging**: Logs errors and events for debugging/troubleshooting.
+- **DBC Parsing**: Parse DBC files to encode messages by name and decode incoming frames.
 
 ## Development
 
