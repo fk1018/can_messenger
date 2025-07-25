@@ -122,6 +122,7 @@ module CanMessenger
 
     def encode(bytes, value)
       raw = ((value - offset) / factor).round
+      validate_signal_bounds(bytes.size)
       insert_bits(bytes, raw)
     end
 
@@ -132,16 +133,34 @@ module CanMessenger
 
     private
 
+    def validate_signal_bounds(message_size_bytes)
+      max_bit = start_bit + length - 1
+      max_allowed_bit = (message_size_bytes * 8) - 1
+
+      raise ArgumentError, "Signal #{name}: start_bit (#{start_bit}) cannot be negative" if start_bit < 0
+
+      return unless max_bit > max_allowed_bit
+
+      raise ArgumentError,
+            "Signal #{name}: signal bits #{start_bit}..#{max_bit} exceed message size (#{message_size_bytes} bytes = #{max_allowed_bit + 1} bits)"
+    end
+
     def insert_bits(bytes, raw) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+      # Handle signed values: convert negative to two's complement
       raw = (1 << length) + raw if sign == :signed && raw.negative?
 
-      raw &= (1 << length) - 1 if sign == :signed
+      # Ensure the value fits in the specified bit length
+      raw &= (1 << length) - 1
 
       length.times do |i|
         bit = (raw >> i) & 1
         bit_pos = endianness == :little ? start_bit + i : start_bit - i
         byte_index = bit_pos / 8
         bit_index = bit_pos % 8
+
+        # Validate bounds before accessing array
+        raise ArgumentError, "Bit position #{bit_pos} out of bounds" if byte_index >= bytes.size || byte_index < 0
+
         bytes[byte_index] ||= 0
         if bit == 1
           bytes[byte_index] |= (1 << bit_index)
@@ -157,6 +176,10 @@ module CanMessenger
         bit_pos = endianness == :little ? start_bit + i : start_bit - i
         byte_index = bit_pos / 8
         bit_index = bit_pos % 8
+
+        # Validate bounds before accessing array
+        next if byte_index >= bytes.size || byte_index < 0
+
         bit = ((bytes[byte_index] || 0) >> bit_index) & 1
         value |= (bit << i)
       end
