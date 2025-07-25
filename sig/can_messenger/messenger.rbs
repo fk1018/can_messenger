@@ -1,34 +1,77 @@
 module CanMessenger
+  # Messenger class for CAN bus communication
   class Messenger
-    @can_interface: String
+    @interface_name: String
     @logger: Logger
     @listening: bool
+    @endianness: Symbol
+    @can_fd: bool
 
+    FRAME_SIZE: Integer
+    CANFD_FRAME_SIZE: Integer
+    MIN_FRAME_SIZE: Integer
+    MAX_FD_DATA: Integer
+    TIMEOUT: String
+
+    # Initializes a new Messenger instance
     def initialize: (
         interface_name: String,
-        logger: Logger?,
-        endianness: Symbol,
+        ?logger: Logger?,
+        ?endianness: Symbol,
         ?can_fd: bool
       ) -> void
+
+    # Sends a CAN message by writing directly to a raw CAN socket
     def send_can_message: (
         id: Integer,
         data: Array[Integer],
         ?extended_id: bool,
-        ?can_fd: bool
+        ?can_fd: bool?
       ) -> void
+
+    # Encodes and sends a CAN message using a DBC definition
+    def send_dbc_message: (
+        message_name: String,
+        signals: Hash[untyped, untyped],
+        ?dbc: CanMessenger::DBC?,
+        ?extended_id: bool,
+        ?can_fd: bool?
+      ) -> void
+
+    # Continuously listens for CAN messages on the specified interface
     def start_listening: (
         ?filter: (Integer | Range[Integer] | Array[Integer])?,
-        ?can_fd: bool
-      ) { (message: { id: Integer, data: Array[Integer], extended: bool }) -> void } -> void
+        ?can_fd: bool?,
+        ?dbc: CanMessenger::DBC?
+      ) { ({ id: Integer, data: Array[Integer], extended: bool, decoded: untyped }) -> void } -> void
+
+    # Stops the listening loop
     def stop_listening: () -> void
 
     private
 
+    # Creates and configures a CAN socket bound to the interface
     def open_can_socket: (?can_fd: bool) -> (Socket | nil)
-    def with_socket: (?can_fd: bool) { (socket: Socket) -> void } -> void
-    def process_message: (socket: Socket, filter: (Integer | Range[Integer] | Array[Integer])?, bool, &block: (Proc { (message: { id: Integer, data: Array[Integer], extended: bool }) -> void })) -> void
+
+    # Opens a socket, yields it, and closes it when done
+    def with_socket: (?can_fd: bool) { (Socket) -> void } -> void
+
+    # Builds a raw CAN or CAN FD frame for SocketCAN
+    def build_can_frame: (id: Integer, data: Array[Integer], ?extended_id: bool, ?can_fd: bool) -> String
+
+    # Processes a single CAN message from socket
+    def process_message: (Socket socket, (Integer | Range[Integer] | Array[Integer])? filter, bool can_fd, CanMessenger::DBC? dbc) { ({ id: Integer, data: Array[Integer], extended: bool, decoded: untyped }) -> void } -> void
+
+    # Reads a frame from the socket and parses it
     def receive_message: (socket: Socket, ?can_fd: bool) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
-    def parse_frame: (frame: String, ?can_fd: bool) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+
+    # Parses a raw CAN frame into a hash
+    def parse_frame: (frame: String, ?can_fd: bool?) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+
+    # Unpacks the frame ID respecting endianness
+    def unpack_frame_id: (frame: String) -> Integer
+
+    # Checks whether the given message ID matches the specified filter
     def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool
   end
 end

@@ -1,2 +1,4 @@
 module CanMessenger
+  class Error < StandardError
+  end
 end
