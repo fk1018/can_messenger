@@ -346,7 +346,7 @@ module CanMessenger
 
       min_val = -(1 << (length - 1))
       max_val = (1 << (length - 1)) - 1
-      return if raw >= min_val && raw <= max_val
+      return if raw.between?(min_val, max_val)
 
       raise ArgumentError,
             "Signed value #{raw} out of range [#{min_val}..#{max_val}] for #{length}-bit field"
