@@ -137,15 +137,16 @@ module CanMessenger
       max_bit = start_bit + length - 1
       max_allowed_bit = (message_size_bytes * 8) - 1
 
-      raise ArgumentError, "Signal #{name}: start_bit (#{start_bit}) cannot be negative" if start_bit < 0
+      raise ArgumentError, "Signal #{name}: start_bit (#{start_bit}) cannot be negative" if start_bit.negative?
 
       return unless max_bit > max_allowed_bit
 
       raise ArgumentError,
-            "Signal #{name}: signal bits #{start_bit}..#{max_bit} exceed message size (#{message_size_bytes} bytes = #{max_allowed_bit + 1} bits)"
+            "Signal #{name}: signal bits #{start_bit}..#{max_bit} exceed message size " \
+            "(#{message_size_bytes} bytes = #{max_allowed_bit + 1} bits)"
     end
 
-    def insert_bits(bytes, raw) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    def insert_bits(bytes, raw) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
       # Handle signed values: convert negative to two's complement
       raw = (1 << length) + raw if sign == :signed && raw.negative?
 
@@ -159,7 +160,7 @@ module CanMessenger
         bit_index = bit_pos % 8
 
         # Validate bounds before accessing array
-        raise ArgumentError, "Bit position #{bit_pos} out of bounds" if byte_index >= bytes.size || byte_index < 0
+        raise ArgumentError, "Bit position #{bit_pos} out of bounds" if byte_index >= bytes.size || byte_index.negative?
 
         bytes[byte_index] ||= 0
         if bit == 1
@@ -178,7 +179,7 @@ module CanMessenger
         bit_index = bit_pos % 8
 
         # Validate bounds before accessing array
-        next if byte_index >= bytes.size || byte_index < 0
+        next if byte_index >= bytes.size || byte_index.negative?
 
         bit = ((bytes[byte_index] || 0) >> bit_index) & 1
         value |= (bit << i)
