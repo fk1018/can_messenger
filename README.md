@@ -116,7 +116,7 @@ Parse a DBC file and let the messenger encode and decode messages automatically:
 dbc = CanMessenger::DBC.load('example.dbc')
 
 # Encode using signal values
-messenger.send_can_message(dbc: dbc, message_name: 'Example', signals: { Speed: 100 })
+messenger.send_dbc_message(dbc: dbc, message_name: 'Example', signals: { Speed: 100 })
 
 # Decode received frames
 messenger.start_listening(dbc: dbc) do |msg|

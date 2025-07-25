@@ -14,31 +14,51 @@ module CanMessenger
       parse(content) unless content.empty?
     end
 
-    def parse(content) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def parse(content) # rubocop:disable Metrics/MethodLength
       current = nil
       content.each_line do |line|
         line.strip!
         next if line.empty? || line.start_with?("BO_TX_BU_")
 
-        if (m = line.match(/^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)/))
-          id = m[1].to_i
-          name = m[2]
-          dlc = m[3].to_i
-          current = Message.new(id, name, dlc)
-          @messages[name] = current
-        elsif (m = line.match(/^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^\)]+)\)/)) && current
-          sig_name = m[1]
-          start_bit = m[2].to_i
-          length = m[3].to_i
-          endian = m[4] == "1" ? :little : :big
-          sign = m[5] == "-" ? :signed : :unsigned
-          factor = m[6].to_f
-          offset = m[7].to_f
-          current.signals << Signal.new(sig_name, start_bit: start_bit, length: length, endianness: endian, sign: sign,
-                                                  factor: factor, offset: offset)
+        if (msg = parse_message_line(line))
+          current = msg
+          @messages[msg.name] = msg
+        elsif current && (sig = parse_signal_line(line, current))
+          current.signals << sig
         end
       end
     end
+
+    def parse_message_line(line)
+      return unless (m = line.match(/^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)/))
+
+      id = m[1].to_i
+      name = m[2]
+      dlc = m[3].to_i
+      Message.new(id, name, dlc)
+    end
+
+    def parse_signal_line(line, _current) # rubocop:disable Metrics/MethodLength
+      return unless (m = line.match(/^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^\)]+)\)/))
+
+      sig_name = m[1]
+      start_bit = m[2].to_i
+      length = m[3].to_i
+      endian = m[4] == "1" ? :little : :big
+      sign = m[5] == "-" ? :signed : :unsigned
+      factor = m[6].to_f
+      offset = m[7].to_f
+
+      Signal.new(
+        sig_name,
+        start_bit: start_bit,
+        length: length,
+        endianness: endian,
+        sign: sign,
+        factor: factor,
+        offset: offset
+      )
+    end # rubocop:enable Metrics/MethodLength
 
     def encode_can(name, values)
       msg = @messages[name]
@@ -113,6 +133,8 @@ module CanMessenger
     private
 
     def insert_bits(bytes, raw) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+      raw = (1 << length) + raw if sign == :signed && raw.negative?
+
       raw &= (1 << length) - 1 if sign == :signed
 
       length.times do |i|

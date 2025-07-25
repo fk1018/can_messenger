@@ -16,6 +16,13 @@ module CanMessenger
         ?extended_id: bool,
         ?can_fd: bool
       ) -> void
+    def send_dbc_message: (
+        message_name: String,
+        signals: Hash[untyped, untyped],
+        ?dbc: CanMessenger::DBC?,
+        ?extended_id: bool,
+        ?can_fd: bool
+      ) -> void
     def start_listening: (
         ?filter: (Integer | Range[Integer] | Array[Integer])?,
         ?can_fd: bool

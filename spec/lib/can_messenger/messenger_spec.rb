@@ -146,7 +146,7 @@ RSpec.describe CanMessenger::Messenger do
         expect(frame[0..3]).to eq([0x00, 0x00, 0x00, 0x42].pack("C*"))
       end
 
-      socket.send_can_message(dbc: dbc, message_name: "Test", signals: { foo: 1 })
+      socket.send_dbc_message(dbc: dbc, message_name: "Test", signals: { foo: 1 })
     end
   end
 
