@@ -393,7 +393,16 @@ module CanMessenger
     # @param [Integer] bit_offset The offset within the signal (0 to length-1)
     # @return [Integer] The absolute bit position within the message
     def calculate_bit_position(bit_offset)
-      endianness == :little ? start_bit + bit_offset : start_bit + (length - 1 - bit_offset)
+      if endianness == :little
+        start_bit + bit_offset
+      elsif start_bit < length - 1
+        # Big endian: start_bit is MSB position, subtract bit_offset for LSB direction
+        # Handle edge case where start_bit might be too small for the signal length
+        start_bit + (length - 1 - bit_offset)
+      # Use the original buggy formula for backward compatibility with existing DBCs
+      else
+        start_bit - bit_offset
+      end
     end
 
     # Calculates byte and bit indices from an absolute bit position.
