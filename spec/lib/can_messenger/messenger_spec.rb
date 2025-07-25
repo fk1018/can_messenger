@@ -129,6 +129,25 @@ RSpec.describe CanMessenger::Messenger do
         end.to raise_error(ArgumentError)
       end
     end
+
+    it "raises ArgumentError when id is missing" do
+      expect { socket.send_can_message(data: [0x00]) }.to raise_error(ArgumentError)
+    end
+
+    it "raises ArgumentError when data is missing" do
+      expect { socket.send_can_message(id: 0x123) }.to raise_error(ArgumentError)
+    end
+
+    it "encodes a message using a dbc object" do
+      dbc = instance_double("DBC")
+      allow(dbc).to receive(:encode_can).with("Test", { foo: 1 }).and_return(id: 0x42, data: [0x01])
+
+      expect(mock_socket).to receive(:write) do |frame|
+        expect(frame[0..3]).to eq([0x00, 0x00, 0x00, 0x42].pack("C*"))
+      end
+
+      socket.send_can_message(dbc: dbc, message_name: "Test", signals: { foo: 1 })
+    end
   end
 
   describe "#start_listening" do
@@ -216,6 +235,14 @@ RSpec.describe CanMessenger::Messenger do
 
       expect(received).to eq([{ id: 0x12345678, extended: false, data: [0xDE, 0xAD, 0xBE, 0xEF] }])
     end
+
+    context "without a block" do
+      it "logs an error and does not open a socket" do
+        expect(socket).not_to receive(:open_can_socket)
+        expect(silent_logger).to receive(:error).with(/No block provided/)
+        socket.start_listening
+      end
+    end
   end
 
   describe "#stop_listening" do
@@ -265,6 +292,43 @@ RSpec.describe CanMessenger::Messenger do
     end
   end
 
+  describe "#with_socket" do
+    let(:fake_socket) { instance_double(Socket, close: nil) }
+
+    it "yields the opened socket and closes it" do
+      allow(socket).to receive(:open_can_socket).and_return(fake_socket)
+      yielded = nil
+      socket.send(:with_socket) do |s|
+        yielded = s
+      end
+      expect(yielded).to eq(fake_socket)
+      expect(fake_socket).to have_received(:close)
+    end
+
+    it "logs an error when socket cannot be opened" do
+      allow(socket).to receive(:open_can_socket).and_return(nil)
+      expect(silent_logger).to receive(:error).with(/Failed to open socket/)
+      executed = false
+      socket.send(:with_socket) { executed = true }
+      expect(executed).to be false
+    end
+  end
+
+  describe "#build_can_frame" do
+    it "packs ID little-endian when endianness is :little" do
+      le_socket = described_class.new(interface_name: interface, logger: silent_logger, endianness: :little)
+      frame = le_socket.send(:build_can_frame, id: 0x12345678, data: [])
+      expect(frame[0..3]).to eq([0x78, 0x56, 0x34, 0x12].pack("C*"))
+    end
+
+    it "raises ArgumentError for data > 64 bytes with CAN FD" do
+      data = Array.new(65, 0xFF)
+      expect do
+        socket.send(:build_can_frame, id: 0x1, data: data, can_fd: true)
+      end.to raise_error(ArgumentError)
+    end
+  end
+
   describe "#receive_message" do
     let(:mock_socket) { instance_double(Socket) }
 
@@ -285,6 +349,44 @@ RSpec.describe CanMessenger::Messenger do
         expect(silent_logger).to receive(:error).with(/Error receiving CAN message on interface/)
         expect(socket.send(:receive_message, socket: mock_socket)).to be_nil
       end
+    end
+
+    it "requests CANFD_FRAME_SIZE when can_fd is true" do
+      allow(mock_socket).to receive(:recv).and_return(sample_frame)
+      socket.send(:receive_message, socket: mock_socket, can_fd: true)
+      expect(mock_socket).to have_received(:recv).with(described_class::CANFD_FRAME_SIZE)
+    end
+  end
+
+  describe "#process_message" do
+    let(:mock_socket) { instance_double(Socket) }
+    let(:msg) { { id: 0x10, extended: false, data: [0x01] } }
+
+    before do
+      allow(socket).to receive(:receive_message).and_return(msg)
+    end
+
+    it "filters out unmatched messages" do
+      expect { |b| socket.send(:process_message, mock_socket, 0x20, false, nil, &b) }.not_to yield_control
+    end
+
+    it "adds decoded data when dbc provided" do
+      dbc = double("DBC", decode_can: { value: 1 })
+      yielded = nil
+      socket.send(:process_message, mock_socket, nil, false, dbc) { |m| yielded = m }
+      expect(yielded[:decoded]).to eq({ value: 1 })
+    end
+
+    it "logs exceptions from the block" do
+      expect(silent_logger).to receive(:error).with(/Unexpected error/)
+      socket.send(:process_message, mock_socket, nil, false, nil) { raise "boom" }
+    end
+
+    it "logs decode errors" do
+      dbc = double("DBC")
+      allow(dbc).to receive(:decode_can).and_raise(StandardError, "bad")
+      expect(silent_logger).to receive(:error).with(/Unexpected error/)
+      expect { socket.send(:process_message, mock_socket, nil, false, dbc) {} }.not_to raise_error # rubocop:disable Lint/EmptyBlock
     end
   end
 
@@ -335,6 +437,30 @@ RSpec.describe CanMessenger::Messenger do
 
       parsed = socket.send(:parse_frame, frame: raw_frame, can_fd: true)
       expect(parsed).to eq(id: raw_id, extended: false, data: data)
+    end
+
+    it "returns nil for nil frame" do
+      expect(socket.send(:parse_frame, frame: nil)).to be_nil
+    end
+
+    it "returns nil for frame shorter than MIN_FRAME_SIZE" do
+      expect(socket.send(:parse_frame, frame: "\x00" * 4)).to be_nil
+    end
+
+    it "auto-detects CAN FD by frame length" do
+      data = Array.new(64, 0)
+      frame_id = [0x123].pack("N")
+      dlc_and_pad = [data.size, 0, 0, 0].pack("C*")
+      raw_frame = frame_id + dlc_and_pad + data.pack("C*")
+      parsed = socket.send(:parse_frame, frame: raw_frame)
+      expect(parsed).to eq(id: 0x123, extended: false, data: data)
+    end
+
+    it "parses frames with little-endian IDs" do
+      le_socket = described_class.new(interface_name: interface, logger: silent_logger, endianness: :little)
+      frame = le_socket.send(:build_can_frame, id: 0x12345678, data: [0xAA])
+      parsed = le_socket.send(:parse_frame, frame: frame)
+      expect(parsed).to eq(id: 0x12345678, extended: false, data: [0xAA])
     end
 
     context "when an error occurs during parsing" do
