@@ -41,7 +41,7 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message (up to 29 bits for extended IDs).
     # @param [Array<Integer>] data The data bytes of the CAN message (0 to 8 bytes).
     # @return [void]
-    def send_can_message(id: nil, data: nil, extended_id: false, can_fd: nil)
+    def send_can_message(id:, data:, extended_id: false, can_fd: nil)
       raise ArgumentError, "id and data are required" if id.nil? || data.nil?
 
       use_fd = can_fd.nil? ? @can_fd : can_fd
