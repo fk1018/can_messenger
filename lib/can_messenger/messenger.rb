@@ -41,13 +41,7 @@ module CanMessenger
     # @param [Integer] id The CAN ID of the message (up to 29 bits for extended IDs).
     # @param [Array<Integer>] data The data bytes of the CAN message (0 to 8 bytes).
     # @return [void]
-    def send_can_message(id: nil, data: nil, extended_id: false, can_fd: nil, dbc: nil, message_name: nil, signals: {}) # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
-      if dbc && message_name
-        encoded = dbc.encode_can(message_name, signals)
-        id = encoded[:id]
-        data = encoded[:data]
-      end
-
+    def send_can_message(id: nil, data: nil, extended_id: false, can_fd: nil)
       raise ArgumentError, "id and data are required" if id.nil? || data.nil?
 
       use_fd = can_fd.nil? ? @can_fd : can_fd
@@ -60,6 +54,23 @@ module CanMessenger
       raise
     rescue StandardError => e
       @logger.error("Error sending CAN message (ID: #{id}): #{e}")
+    end
+
+    # Encodes and sends a CAN message using a DBC definition
+    #
+    # @param [String] message_name The message name to encode
+    # @param [Hash] signals Values for each signal in the message
+    # @param [CanMessenger::DBC] dbc The DBC instance used for encoding (defaults to @dbc)
+    # @return [void]
+    def send_dbc_message(message_name:, signals:, dbc: @dbc, extended_id: false, can_fd: nil)
+      raise ArgumentError, "dbc is required" if dbc.nil?
+
+      encoded = dbc.encode_can(message_name, signals)
+      send_can_message(id: encoded[:id], data: encoded[:data], extended_id: extended_id, can_fd: can_fd)
+    rescue ArgumentError
+      raise
+    rescue StandardError => e
+      @logger.error("Error sending DBC message #{message_name}: #{e}")
     end
 
     # Continuously listens for CAN messages on the specified interface.

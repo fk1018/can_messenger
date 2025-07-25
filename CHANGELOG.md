@@ -1,5 +1,20 @@
 ## [Unreleased]
 
+## [1.4.0] - 2025-07-25
+
+### Added
+
+- `send_dbc_message` helper for encoding and sending messages defined in DBC files.
+
+### Changed
+
+- `send_can_message` now only accepts raw frame parameters.
+- DBC parsing code split into helper methods for clarity.
+
+### Fixed
+
+- Correct encoding of negative signal values using two's-complement.
+
 ## [1.3.0] - 2025-06-27
 
 ### Added

@@ -20,6 +20,17 @@ RSpec.describe CanMessenger::DBC do
       expect(msg.id).to eq(256)
       expect(msg.signals.map(&:name)).to match_array(%w[Speed Temp])
     end
+
+    it "handles multiple message definitions" do
+      text = <<~DBC
+        BO_ 1 Msg1: 1 Node
+        SG_ A : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+        BO_ 2 Msg2: 1 Node
+        SG_ B : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+      DBC
+      multi = described_class.new(text)
+      expect(multi.messages.keys).to match_array(%w[Msg1 Msg2])
+    end
   end
 
   describe ".load" do
@@ -45,6 +56,16 @@ RSpec.describe CanMessenger::DBC do
       expect(decoded[:name]).to eq("Example")
       expect(decoded[:signals][:Speed]).to eq(10)
       expect(decoded[:signals][:Temp]).to eq(20)
+    end
+
+    it "encodes negative signed values correctly" do
+      text = <<~DBC
+        BO_ 1 Neg: 1 Example
+        SG_ Val : 0|8@1- (1,0) [-128|127] "" Vector__XXX
+      DBC
+      neg_dbc = described_class.new(text)
+      frame = neg_dbc.encode_can("Neg", Val: -1)
+      expect(frame[:data].first).to eq(0xFF)
     end
   end
 end
