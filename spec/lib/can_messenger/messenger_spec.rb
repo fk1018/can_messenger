@@ -386,7 +386,7 @@ RSpec.describe CanMessenger::Messenger do
       dbc = double("DBC")
       allow(dbc).to receive(:decode_can).and_raise(StandardError, "bad")
       expect(silent_logger).to receive(:error).with(/Unexpected error/)
-      expect { socket.send(:process_message, mock_socket, nil, false, dbc) {} }.not_to raise_error
+      expect { socket.send(:process_message, mock_socket, nil, false, dbc) {} }.not_to raise_error # rubocop:disable Lint/EmptyBlock
     end
   end
 
