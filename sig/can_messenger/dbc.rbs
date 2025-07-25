@@ -1,0 +1,136 @@
+module CanMessenger
+  # DBC (Database CAN) Parser and Encoder/Decoder
+  class DBC
+    @messages: Hash[String, Message]
+
+    attr_reader messages: Hash[String, Message]
+
+    # Loads a DBC file from disk and parses its contents
+    def self.load: (String path) -> DBC
+
+    # Initializes a new DBC instance
+    def initialize: (?String content) -> void
+
+    # Parses DBC content and populates the messages hash
+    def parse: (String content) -> void
+
+    # Encodes signal values into a CAN message frame
+    def encode_can: (String name, Hash[Symbol | String, Numeric] values) -> { id: Integer, data: Array[Integer] }
+
+    # Decodes a CAN message frame into signal values
+    def decode_can: (Integer id, Array[Integer] data) -> ({ name: String, signals: Hash[Symbol, Float] } | nil)
+
+    private
+
+    # Parses a message definition line from DBC content
+    def parse_message_line: (String line) -> (Message | nil)
+
+    # Parses a signal definition line from DBC content
+    def parse_signal_line: (String line, Message? _current) -> (Signal | nil)
+  end
+
+  # Represents a CAN message definition from a DBC file
+  class Message
+    @id: Integer
+    @name: String
+    @dlc: Integer
+    @signals: Array[Signal]
+
+    attr_reader id: Integer
+    attr_reader name: String
+    attr_reader dlc: Integer
+    attr_reader signals: Array[Signal]
+
+    # Initializes a new Message instance
+    def initialize: (Integer id, String name, Integer dlc) -> void
+
+    # Encodes signal values into the message byte array
+    def encode: (Hash[Symbol | String, Numeric] values) -> Array[Integer]
+
+    # Decodes message data bytes into individual signal values
+    def decode: (Array[Integer] data) -> Hash[Symbol, Float]
+  end
+
+  # Represents a signal within a CAN message
+  class Signal
+    @name: String
+    @start_bit: Integer
+    @length: Integer
+    @endianness: Symbol
+    @sign: Symbol
+    @factor: Float
+    @offset: Float
+
+    attr_reader name: String
+    attr_reader start_bit: Integer
+    attr_reader length: Integer
+    attr_reader endianness: Symbol
+    attr_reader sign: Symbol
+    attr_reader factor: Float
+    attr_reader offset: Float
+
+    # Initializes a new Signal instance
+    def initialize: (
+      String name,
+      start_bit: Integer,
+      length: Integer,
+      endianness: Symbol,
+      sign: Symbol,
+      factor: Float,
+      offset: Float
+    ) -> void
+
+    # Encodes a value into the message byte array at this signal's bit position
+    def encode: (Array[Integer] bytes, Numeric value) -> void
+
+    # Decodes this signal's value from the message byte array
+    def decode: (Array[Integer] bytes) -> Float
+
+    private
+
+    # Validates that the signal fits within the message boundaries
+    def validate_signal_bounds: (Integer message_size_bytes) -> void
+
+    # Encodes a raw integer value into the message byte array
+    def insert_bits: (Array[Integer] bytes, Integer raw) -> void
+
+    # Validates the raw integer value before encoding
+    def validate_raw_value: (Integer raw) -> void
+
+    # Validates unsigned values to ensure they're not negative
+    def validate_unsigned_value: (Integer raw) -> void
+
+    # Validates signed values to ensure they fit in the signal's bit range
+    def validate_signed_value: (Integer raw) -> void
+
+    # Processes the raw value for encoding (handles two's complement conversion)
+    def process_raw_value: (Integer raw) -> Integer
+
+    # Writes the processed bits into the message byte array
+    def write_bits_to_bytes: (Array[Integer] bytes, Integer raw) -> void
+
+    # Calculates the bit position for a given bit offset within the signal
+    def calculate_bit_position: (Integer bit_offset) -> Integer
+
+    # Calculates byte and bit indices from an absolute bit position
+    def calculate_byte_and_bit_indices: (Integer bit_pos) -> Array[Integer]
+
+    # Validates that a bit position is within the message boundaries
+    def validate_bit_position: (Integer bit_pos, Integer bytes_size) -> void
+
+    # Updates a specific bit within a byte in the message array
+    def update_byte_with_bit: (Array[Integer] bytes, Integer byte_index, Integer bit_index, Integer bit) -> void
+
+    # Extracts the signal value from the message byte array
+    def extract_bits: (Array[Integer] bytes) -> Integer
+
+    # Reads the raw bits from the message byte array
+    def read_bits_from_bytes: (Array[Integer] bytes) -> Integer
+
+    # Validates bit position during extraction to ensure it's within bounds
+    def validate_extraction_bounds: (Integer bit_pos, Integer bytes_size) -> void
+
+    # Converts unsigned value to signed if the signal is signed and the MSB is set
+    def convert_to_signed_if_needed: (Integer value) -> Integer
+  end
+end
