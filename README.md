@@ -6,6 +6,7 @@
 ![Status](https://img.shields.io/badge/status-stable-green)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Gem Total Downloads](https://img.shields.io/gem/dt/can_messenger)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/fk1018/can_messenger?utm_source=oss&utm_medium=github&utm_campaign=fk1018%2Fcan_messenger&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 `can_messenger` is a Ruby gem that provides an interface for communicating over the CAN bus, allowing users to send and receive CAN messages `via raw SocketCAN sockets`. This gem is designed for developers who need an easy way to interact with CAN-enabled devices on Linux.
 
