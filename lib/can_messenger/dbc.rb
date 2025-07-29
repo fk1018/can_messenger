@@ -396,8 +396,17 @@ module CanMessenger
       if endianness == :little
         start_bit + bit_offset
       else
-        # For big-endian, calculate the bit position by determining the MSB-first
-        # bit numbering within the byte and adjusting for the bit offset.
+        # For big-endian signals, the bit numbering within a byte follows MSB-first
+        # ordering. This means that the most significant bit (MSB) is numbered 7,
+        # and the least significant bit (LSB) is numbered 0. To calculate the absolute
+        # bit position, we first determine the position of the MSB in the starting byte.
+        # 
+        # The formula ((start_bit / 8) * 8) calculates the starting byte's base bit
+        # position (aligned to the nearest multiple of 8). Adding (7 - (start_bit % 8))
+        # adjusts this base position to point to the MSB of the starting byte.
+        # 
+        # Finally, we subtract the bit offset to account for the signal's length and
+        # position within the message.
         base = ((start_bit / 8) * 8) + (7 - (start_bit % 8))
         base - bit_offset
       end
