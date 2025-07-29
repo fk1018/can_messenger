@@ -79,6 +79,18 @@ RSpec.describe CanMessenger::DBC do
       expect(decoded[:signals][:Val]).to eq(42.0)
     end
 
+    it "handles big endian signals crossing byte boundaries" do
+      text = <<~DBC
+        BO_ 1 Cross: 3 Node
+        SG_ A : 12|12@0+ (1,0) [0|4095] "" Vector__XXX
+      DBC
+      cross_dbc = described_class.new(text)
+      frame = cross_dbc.encode_can("Cross", A: 0xabc)
+      expect(frame[:data].first(3)).to eq([0xD5, 0x03, 0x00])
+      decoded = cross_dbc.decode_can(frame[:id], frame[:data])
+      expect(decoded[:signals][:A]).to eq(0xabc)
+    end
+
     it "applies factor and offset correctly" do
       text = <<~DBC
         BO_ 1 Scaled: 2 Node

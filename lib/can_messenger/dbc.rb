@@ -395,13 +395,9 @@ module CanMessenger
     def calculate_bit_position(bit_offset)
       if endianness == :little
         start_bit + bit_offset
-      elsif start_bit < length - 1
-        # Big endian: start_bit is MSB position, subtract bit_offset for LSB direction
-        # Handle edge case where start_bit might be too small for the signal length
-        start_bit + (length - 1 - bit_offset)
-      # Use the original buggy formula for backward compatibility with existing DBCs
       else
-        start_bit - bit_offset
+        base = ((start_bit / 8) * 8) + (7 - (start_bit % 8))
+        base - bit_offset
       end
     end
 
