@@ -396,6 +396,8 @@ module CanMessenger
       if endianness == :little
         start_bit + bit_offset
       else
+        # For big-endian, calculate the bit position by determining the MSB-first
+        # bit numbering within the byte and adjusting for the bit offset.
         base = ((start_bit / 8) * 8) + (7 - (start_bit % 8))
         base - bit_offset
       end
