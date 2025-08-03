@@ -17,11 +17,11 @@ Gem::Specification.new do |spec|
   # Metadata for RubyGems
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/fk1018/can_messenger"
-  spec.metadata["changelog_uri"] = "https://github.com/fk1018/can_messenger/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
 
   # Files to include in the gem package
-  spec.files = Dir["lib/**/*", "README.md"]
+  spec.files = Dir["lib/**/*", "README.md", "LICENSE.txt", "CHANGELOG.md"]
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
