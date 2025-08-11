@@ -135,6 +135,25 @@ To stop listening, use:
 messenger.stop_listening
 ```
 
+### Adapters
+
+`CanMessenger::Messenger` delegates low level CAN bus operations to an adapter. By default it uses the
+SocketCAN adapter which communicates with Linux CAN interfaces using raw sockets:
+
+```ruby
+messenger = CanMessenger::Messenger.new(interface_name: "can0")
+```
+
+You can provide a custom adapter via the `adapter:` option:
+
+```ruby
+my_adapter = MyCustomAdapter.new(interface_name: "can0", logger: Logger.new($stdout))
+messenger = CanMessenger::Messenger.new(interface_name: "can0", adapter: my_adapter)
+```
+
+To build your own adapter, subclass `CanMessenger::Adapter::Base` and implement the required methods
+`open_socket`, `build_can_frame`, `receive_message`, and `parse_frame`.
+
 ## Important Considerations
 
 Before using `can_messenger`, please note the following:
