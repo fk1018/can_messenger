@@ -6,6 +6,10 @@ require "logger"
 RSpec.describe CanMessenger::Adapter::Base do
   subject(:adapter) { described_class.new(interface_name: "can0", logger: Logger.new(nil)) }
 
+  it "defaults to native endianness" do
+    expect(adapter.endianness).to eq(described_class.native_endianness)
+  end
+
   it "raises NotImplementedError for open_socket" do
     expect { adapter.open_socket }.to raise_error(NotImplementedError)
   end

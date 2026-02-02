@@ -137,7 +137,7 @@ messenger.stop_listening
 
 ### Adapters
 
-`CanMessenger::Messenger` delegates low level CAN bus operations to an adapter. By default it uses the
+`CanMessenger::Messenger` delegates low-level CAN bus operations to an adapter. By default it uses the
 SocketCAN adapter which communicates with Linux CAN interfaces using raw sockets:
 
 ```ruby
@@ -159,12 +159,10 @@ To build your own adapter, subclass `CanMessenger::Adapter::Base` and implement 
 Before using `can_messenger`, please note the following:
 
 - **Environment Requirements:**
-
   - **SocketCAN** must be available on your Linux system.
   - **Permissions:** Working with raw sockets may require elevated privileges or membership in a specific group to open and bind to CAN interfaces without running as root.
 
 - **API Changes (v1.0.0 and later):**
-
   - **Keyword Arguments:** The Messenger API now requires keyword arguments. For example, when initializing the Messenger:
 
     ```ruby
@@ -188,16 +186,14 @@ Before using `can_messenger`, please note the following:
     ```
 
 - **Threading & Socket Management:**
-
   - **Blocking Behavior:** The gem uses blocking socket calls and continuously listens for messages. Manage the listener’s lifecycle appropriately, especially in multi-threaded environments. Always call `stop_listening` to gracefully shut down the listener.
   - **Resource Cleanup:** The socket is automatically closed when the listening loop terminates. Stop the listener to avoid resource leaks.
 
 - **Logging:**
-
   - **Default Logger:** If no logger is provided, logs go to standard output. Provide a custom logger if you want more control.
 
 - **CAN Frame Format Assumptions:**
-  - By default, the gem uses **big-endian** packing for CAN IDs. If you integrate with a system using little-endian, you may need to adjust or specify an endianness in the code.
+  - By default, the gem uses **native endianness** for CAN IDs (little-endian on most x86/ARM systems). You can override this by passing `endianness: :big` or `endianness: :little`.
   - The gem expects a standard CAN frame layout (16 bytes total, with the first 4 for the ID, followed by 1 byte for DLC, 3 bytes of padding, and up to 8 bytes of data). **CAN FD** frames (up to 64 bytes) are supported when enabled.
 
 ## Features

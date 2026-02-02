@@ -20,13 +20,13 @@ module CanMessenger
     #
     # @param [String] interface_name The CAN interface to use (e.g., 'can0').
     # @param [Logger, nil] logger Optional logger for error handling and debug information.
-    # @param [Symbol] endianness The endianness of the CAN ID (default: :big) can be :big or :little.
+    # @param [Symbol] endianness The endianness of the CAN ID (default: :native) can be :big, :little, or :native.
     # @return [void]
-    def initialize(interface_name:, logger: nil, endianness: :big, can_fd: false, adapter: Adapter::Socketcan)
+    def initialize(interface_name:, logger: nil, endianness: :native, can_fd: false, adapter: Adapter::Socketcan)
       @interface_name = interface_name
       @logger = logger || Logger.new($stdout)
       @listening = true # Control flag for listening loop
-      @endianness    = endianness # :big or :little
+      @endianness    = endianness # :big, :little, or :native
       @can_fd        = can_fd
       @adapter = if adapter.is_a?(Class)
                    adapter.new(interface_name: interface_name, logger: @logger, endianness: endianness)

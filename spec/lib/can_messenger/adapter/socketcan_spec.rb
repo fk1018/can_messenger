@@ -25,8 +25,16 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
   subject(:adapter) { described_class.new(interface_name: interface, logger: silent_logger) }
 
   # Helper frame used across tests
+  def pack_id(id, endianness)
+    endianness == :big ? [id].pack("L>") : [id].pack("V")
+  end
+
+  def unpack_id(bytes, endianness)
+    endianness == :big ? bytes.unpack1("L>") : bytes.unpack1("V")
+  end
+
   def sample_frame
-    "#{[0x12345678].pack("L>")}\x04\x00\x00\x00#{[0xDE, 0xAD, 0xBE, 0xEF].pack("C*")}"
+    "#{pack_id(0x12345678, adapter.endianness)}\x04\x00\x00\x00#{[0xDE, 0xAD, 0xBE, 0xEF].pack("C*")}"
   end
 
   describe "#open_socket" do
@@ -59,6 +67,10 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
   end
 
   describe "#build_can_frame" do
+    it "defaults to native endianness" do
+      expect(adapter.endianness).to eq(described_class.native_endianness)
+    end
+
     it "packs ID little-endian when endianness is :little" do
       le = described_class.new(interface_name: interface, logger: silent_logger, endianness: :little)
       frame = le.build_can_frame(id: 0x12345678, data: [])
@@ -67,7 +79,8 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
 
     it "sets the extended ID bit" do
       frame = adapter.build_can_frame(id: 0x1ABC, data: [], extended_id: true)
-      expect(frame[0..3].unpack1("L>") & 0x80000000).not_to be_zero
+      raw_id = unpack_id(frame[0..3], adapter.endianness)
+      expect(raw_id & 0x80000000).not_to be_zero
     end
 
     it "raises error when data length exceeds 8 bytes" do
@@ -115,7 +128,7 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
   describe "#parse_frame" do
     it "identifies extended frames" do
       eff = 0x80000000 | 0x1ABC
-      frame = [eff].pack("L>") + [4, 0, 0, 0].pack("C*") + [0, 0, 0, 0].pack("C*")
+      frame = pack_id(eff, adapter.endianness) + [4, 0, 0, 0].pack("C*") + [0, 0, 0, 0].pack("C*")
       parsed = adapter.parse_frame(frame: frame)
       expect(parsed[:extended]).to be true
       expect(parsed[:id]).to eq(0x1ABC)
@@ -123,7 +136,7 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
 
     it "parses CAN FD frame" do
       data = Array.new(64) { |i| i }
-      frame = [0x123].pack("L>") + [data.size, 0, 0, 0].pack("C*") + data.pack("C*")
+      frame = pack_id(0x123, adapter.endianness) + [data.size, 0, 0, 0].pack("C*") + data.pack("C*")
       parsed = adapter.parse_frame(frame: frame, can_fd: true)
       expect(parsed).to eq(id: 0x123, data: data, extended: false)
     end

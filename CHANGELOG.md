@@ -10,6 +10,7 @@
 - Minor style cleanups in DBC parsing and message listener block forwarding.
 - Extract SocketCAN logic into a dedicated adapter and add a base adapter interface.
 - Allow injecting a custom adapter into `Messenger` for alternate transports or testing.
+- **Breaking:** Default CAN ID endianness is now native (`:native`) instead of `:big`.
 
 ## [1.4.0] - 2025-07-25
 

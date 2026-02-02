@@ -7,10 +7,19 @@ module CanMessenger
     class Base
       attr_reader :interface_name, :logger, :endianness
 
-      def initialize(interface_name:, logger:, endianness: :big)
+      def self.native_endianness
+        native = [1].pack("I")
+        return :little if native == [1].pack("V")
+        return :big if native == [1].pack("N")
+
+        # Fallback for unusual platforms.
+        native.bytes.first == 1 ? :little : :big
+      end
+
+      def initialize(interface_name:, logger:, endianness: :native)
         @interface_name = interface_name
         @logger = logger
-        @endianness = endianness
+        @endianness = endianness == :native ? self.class.native_endianness : endianness
       end
 
       # Open a socket for the underlying interface.

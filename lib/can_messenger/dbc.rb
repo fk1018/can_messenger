@@ -506,12 +506,10 @@ module CanMessenger
     # @param [Integer] value The unsigned integer value to potentially convert
     # @return [Integer] The final signed or unsigned value
     def convert_to_signed_if_needed(value)
-      index = length - 1
-      if sign == :signed && index >= 1 && value[index] == 1
-        value - (1 << length)
-      else
-        value
-      end
+      return value unless sign == :signed && length.positive?
+
+      msb_set = (value >> (length - 1)).allbits?(1)
+      msb_set ? value - (1 << length) : value
     end
   end
 end
