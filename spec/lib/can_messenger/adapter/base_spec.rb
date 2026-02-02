@@ -9,12 +9,8 @@ RSpec.describe CanMessenger::Adapter::Base do
   describe ".native_endianness" do
     it "returns :big when native pack matches network order" do
       allow(described_class).to receive(:pack_uint).and_wrap_original do |original, value, template|
-        case template
-        when "I" then "N"
-        when "V" then "V"
-        when "N" then "Z"
-        else original.call(value, template)
-        end
+        mapping = { "I" => "N", "V" => "V", "N" => "N" }
+        mapping.fetch(template) { original.call(value, template) }
       end
 
       expect(described_class.native_endianness).to eq(:big)
