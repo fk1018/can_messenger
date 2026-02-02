@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description   = "CanMessenger provides an interface to send and receive messages over the CAN bus, useful for applications requiring CAN communication in Ruby." # rubocop:disable Layout/LineLength
   spec.homepage      = "https://github.com/fk1018/can_messenger"
   spec.license       = "MIT"
-  spec.required_ruby_version = ">= 3.0.0"
+  spec.required_ruby_version = ">= 4.0.1"
 
   # Metadata for RubyGems
   spec.metadata["allowed_push_host"] = "https://rubygems.org"

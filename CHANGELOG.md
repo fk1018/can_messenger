@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+## [2.0.0] - 2026-02-02
+
+### Changed
+
+- **Breaking:** Require Ruby 4.0.1 or higher.
+- Update CI to run on Ruby 4.0.1.
+- Upgrade RuboCop to support Ruby 4.0 and refresh linting.
+- Minor style cleanups in DBC parsing and message listener block forwarding.
+- Extract SocketCAN logic into a dedicated adapter and add a base adapter interface.
+- Allow injecting a custom adapter into `Messenger` for alternate transports or testing.
+- **Breaking:** Default CAN ID endianness is now native (`:native`) instead of `:big`.
+
+### Fixed
+
+- Close SocketCAN sockets when bind/setsockopt fails to avoid leaks.
+
 ## [1.4.0] - 2025-07-25
 
 ### Added
@@ -134,6 +150,7 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
+  [2.0.0]: https://github.com/fk1018/can_messenger/compare/v1.3.0...v2.0.0
   [1.3.0]: https://github.com/fk1018/can_messenger/compare/v1.2.1...v1.3.0
   [1.2.1]: https://github.com/fk1018/can_messenger/compare/v1.2.0...v1.2.1
   [1.2.0]: https://github.com/fk1018/can_messenger/compare/v1.1.0...v1.2.0
