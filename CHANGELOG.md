@@ -12,6 +12,10 @@
 - Allow injecting a custom adapter into `Messenger` for alternate transports or testing.
 - **Breaking:** Default CAN ID endianness is now native (`:native`) instead of `:big`.
 
+### Fixed
+
+- Close SocketCAN sockets when bind/setsockopt fails to avoid leaks.
+
 ## [1.4.0] - 2025-07-25
 
 ### Added

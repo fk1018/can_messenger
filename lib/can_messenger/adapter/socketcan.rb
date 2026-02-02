@@ -14,21 +14,15 @@ module CanMessenger
       TIMEOUT = [1, 0].pack("l_2")
 
       # Creates and configures a CAN socket bound to the interface.
-      # rubocop:disable Metrics/MethodLength
       def open_socket(can_fd: false)
-        Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW).tap do |socket|
-          socket.bind(Socket.pack_sockaddr_can(interface_name))
-          socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, TIMEOUT)
-          if can_fd && Socket.const_defined?(:CAN_RAW_FD_FRAMES)
-            socket.setsockopt(Socket.const_defined?(:SOL_CAN_RAW) ? Socket::SOL_CAN_RAW : Socket::CAN_RAW,
-                              Socket::CAN_RAW_FD_FRAMES, 1)
-          end
-        end
+        socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
+        configure_socket(socket, can_fd: can_fd)
+        socket
       rescue StandardError => e
+        close_socket(socket)
         logger.error("Error creating CAN socket on interface #{interface_name}: #{e}")
         nil
       end
-      # rubocop:enable Metrics/MethodLength
 
       # Builds a raw CAN or CAN FD frame for SocketCAN.
       def build_can_frame(id:, data:, extended_id: false, can_fd: false) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/PerceivedComplexity
@@ -107,6 +101,24 @@ module CanMessenger
         else
           frame[0..3].unpack1("V")
         end
+      end
+
+      def configure_socket(socket, can_fd:)
+        socket.bind(Socket.pack_sockaddr_can(interface_name))
+        socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, TIMEOUT)
+        return unless can_fd && Socket.const_defined?(:CAN_RAW_FD_FRAMES)
+
+        socket.setsockopt(Socket.const_defined?(:SOL_CAN_RAW) ? Socket::SOL_CAN_RAW : Socket::CAN_RAW,
+                          Socket::CAN_RAW_FD_FRAMES, 1)
+      end
+
+      def close_socket(socket)
+        return unless socket
+        return if socket.closed?
+
+        socket.close
+      rescue StandardError
+        # Ignore close errors so we can report the original failure.
       end
     end
   end

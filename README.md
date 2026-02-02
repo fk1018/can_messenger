@@ -193,7 +193,7 @@ Before using `can_messenger`, please note the following:
   - **Default Logger:** If no logger is provided, logs go to standard output. Provide a custom logger if you want more control.
 
 - **CAN Frame Format Assumptions:**
-  - By default, the gem uses **native endianness** for CAN IDs (little-endian on most x86/ARM systems). You can override this by passing `endianness: :big` or `endianness: :little`.
+  - By default, the gem uses **native endianness** for CAN IDs (little-endian on most x86/ARM systems). **Changed in v2.0.0:** this default was previously `:big`. You can override this by passing `endianness: :big` or `endianness: :little`.
   - The gem expects a standard CAN frame layout (16 bytes total, with the first 4 for the ID, followed by 1 byte for DLC, 3 bytes of padding, and up to 8 bytes of data). **CAN FD** frames (up to 64 bytes) are supported when enabled.
 
 ## Features
