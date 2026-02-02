@@ -8,6 +8,8 @@
 - Update CI to run on Ruby 4.0.1.
 - Upgrade RuboCop to support Ruby 4.0 and refresh linting.
 - Minor style cleanups in DBC parsing and message listener block forwarding.
+- Extract SocketCAN logic into a dedicated adapter and add a base adapter interface.
+- Allow injecting a custom adapter into `Messenger` for alternate transports or testing.
 
 ## [1.4.0] - 2025-07-25
 
