@@ -26,6 +26,27 @@ RSpec.describe CanMessenger::Messenger do
     it "initializes listening as true" do
       expect(messenger.instance_variable_get(:@listening)).to be true
     end
+
+    it "instantiates an adapter when a class is provided" do
+      adapter_class = Class.new do
+        attr_reader :args
+
+        def initialize(interface_name:, logger:, endianness:)
+          @args = { interface_name: interface_name, logger: logger, endianness: endianness }
+        end
+      end
+
+      instance = described_class.new(
+        interface_name: interface,
+        logger: silent_logger,
+        adapter: adapter_class,
+        endianness: :little
+      )
+      adapter = instance.instance_variable_get(:@adapter)
+
+      expect(adapter).to be_a(adapter_class)
+      expect(adapter.args).to eq(interface_name: interface, logger: silent_logger, endianness: :little)
+    end
   end
 
   describe "#send_can_message" do
@@ -38,6 +59,38 @@ RSpec.describe CanMessenger::Messenger do
       ).and_return("frame")
       expect(mock_socket).to receive(:write).with("frame")
       messenger.send_can_message(id: 0x123, data: [0x01])
+    end
+
+    it "re-raises ArgumentError from the adapter" do
+      allow(mock_adapter).to receive(:build_can_frame).and_raise(ArgumentError, "bad frame")
+      expect { messenger.send_can_message(id: 0x123, data: [0x01]) }.to raise_error(ArgumentError, "bad frame")
+    end
+
+    it "logs errors when sending fails" do
+      allow(mock_adapter).to receive(:build_can_frame).and_raise(StandardError, "boom")
+      expect(silent_logger).to receive(:error).with(/Error sending CAN message/)
+      messenger.send_can_message(id: 0x123, data: [0x01])
+    end
+  end
+
+  describe "#send_dbc_message" do
+    let(:dbc) { instance_double(CanMessenger::DBC) }
+
+    it "raises when dbc is nil" do
+      expect { messenger.send_dbc_message(message_name: "Example", signals: {}, dbc: nil) }
+        .to raise_error(ArgumentError, "dbc is required")
+    end
+
+    it "encodes and sends the message" do
+      allow(dbc).to receive(:encode_can).and_return(id: 0x321, data: [0x11])
+      expect(messenger).to receive(:send_can_message).with(id: 0x321, data: [0x11], extended_id: false, can_fd: nil)
+      messenger.send_dbc_message(message_name: "Example", signals: { speed: 1 }, dbc: dbc)
+    end
+
+    it "logs errors when encoding fails" do
+      allow(dbc).to receive(:encode_can).and_raise(StandardError, "boom")
+      expect(silent_logger).to receive(:error).with(/Error sending DBC message/)
+      messenger.send_dbc_message(message_name: "Example", signals: {}, dbc: dbc)
     end
   end
 
@@ -101,6 +154,28 @@ RSpec.describe CanMessenger::Messenger do
     it "matches an array of CAN IDs" do
       expect(messenger.send(:matches_filter?, message_id: 0x123, filter: [0x123, 0x124])).to be(true)
       expect(messenger.send(:matches_filter?, message_id: 0x126, filter: [0x123, 0x124])).to be(false)
+    end
+  end
+
+  describe "#process_message" do
+    let(:dbc) { instance_double(CanMessenger::DBC) }
+
+    it "adds decoded data when dbc is provided" do
+      message = { id: 0x123, data: [0x01] }
+      decoded = { name: "Example", signals: { speed: 1 } }
+      allow(mock_adapter).to receive(:receive_message).and_return(message)
+      allow(dbc).to receive(:decode_can).and_return(decoded)
+
+      received = nil
+      messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }
+
+      expect(received[:decoded]).to eq(decoded)
+    end
+
+    it "logs unexpected errors" do
+      allow(mock_adapter).to receive(:receive_message).and_raise(StandardError, "boom")
+      expect(silent_logger).to receive(:error).with(/Unexpected error in listening loop/)
+      messenger.send(:process_message, mock_socket, nil, false, nil) { |_| nil }
     end
   end
 end

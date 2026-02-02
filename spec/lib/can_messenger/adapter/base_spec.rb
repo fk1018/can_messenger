@@ -6,6 +6,36 @@ require "logger"
 RSpec.describe CanMessenger::Adapter::Base do
   subject(:adapter) { described_class.new(interface_name: "can0", logger: Logger.new(nil)) }
 
+  describe ".native_endianness" do
+    it "returns :big when native pack matches network order" do
+      original_pack = Array.instance_method(:pack)
+      allow_any_instance_of(Array).to receive(:pack) do |array, template|
+        case template
+        when "I" then "N"
+        when "V" then "V"
+        when "N" then "Z"
+        else original_pack.bind(array).call(template)
+        end
+      end
+
+      expect(described_class.native_endianness).to eq(:big)
+    end
+
+    it "falls back to byte inspection when native order is unknown" do
+      original_pack = Array.instance_method(:pack)
+      allow_any_instance_of(Array).to receive(:pack) do |array, template|
+        case template
+        when "I" then "X"
+        when "V" then "V"
+        when "N" then "N"
+        else original_pack.bind(array).call(template)
+        end
+      end
+
+      expect(described_class.native_endianness).to eq(:big)
+    end
+  end
+
   it "defaults to native endianness" do
     expect(adapter.endianness).to eq(described_class.native_endianness)
   end
