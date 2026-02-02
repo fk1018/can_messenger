@@ -86,7 +86,7 @@ module CanMessenger
     #   - `:id` [Integer] the CAN message ID
     #   - `:data` [Array<Integer>] the message data bytes
     # @return [void]
-    def start_listening(filter: nil, can_fd: nil, dbc: nil, &block)
+    def start_listening(filter: nil, can_fd: nil, dbc: nil, &)
       return @logger.error("No block provided to handle messages.") unless block_given?
 
       @listening = true
@@ -95,7 +95,7 @@ module CanMessenger
 
       with_socket(can_fd: use_fd) do |socket|
         @logger.info("Started listening on #{@interface_name}")
-        process_message(socket, filter, use_fd, dbc, &block) while @listening
+        process_message(socket, filter, use_fd, dbc, &) while @listening
       end
     end
 

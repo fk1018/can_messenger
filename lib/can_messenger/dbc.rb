@@ -85,7 +85,7 @@ module CanMessenger
     # @param [Message] _current The current message being processed (unused but kept for API consistency)
     # @return [Signal, nil] A Signal object if the line matches, nil otherwise
     def parse_signal_line(line, _current) # rubocop:disable Metrics/MethodLength
-      return unless (m = line.match(/^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^\)]+)\)/))
+      return unless (m = line.match(/^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^)]+)\)/))
 
       sig_name = m[1]
       start_bit = m[2].to_i
@@ -506,7 +506,8 @@ module CanMessenger
     # @param [Integer] value The unsigned integer value to potentially convert
     # @return [Integer] The final signed or unsigned value
     def convert_to_signed_if_needed(value)
-      if sign == :signed && value[length - 1] == 1
+      index = length - 1
+      if sign == :signed && index >= 1 && value[index] == 1
         value - (1 << length)
       else
         value

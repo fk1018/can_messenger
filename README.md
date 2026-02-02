@@ -12,7 +12,7 @@
 
 ## Requirements
 
-- Ruby 3.0 or higher.
+- Ruby 4.0.1 or higher.
 
 ## Installation
 
