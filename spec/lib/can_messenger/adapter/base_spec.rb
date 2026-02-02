@@ -8,13 +8,12 @@ RSpec.describe CanMessenger::Adapter::Base do
 
   describe ".native_endianness" do
     it "returns :big when native pack matches network order" do
-      original_pack = Array.instance_method(:pack)
-      allow_any_instance_of(Array).to receive(:pack) do |array, template|
+      allow(described_class).to receive(:pack_uint).and_wrap_original do |original, value, template|
         case template
         when "I" then "N"
         when "V" then "V"
         when "N" then "Z"
-        else original_pack.bind(array).call(template)
+        else original.call(value, template)
         end
       end
 
@@ -22,13 +21,12 @@ RSpec.describe CanMessenger::Adapter::Base do
     end
 
     it "falls back to byte inspection when native order is unknown" do
-      original_pack = Array.instance_method(:pack)
-      allow_any_instance_of(Array).to receive(:pack) do |array, template|
+      allow(described_class).to receive(:pack_uint).and_wrap_original do |original, value, template|
         case template
         when "I" then "X"
         when "V" then "V"
         when "N" then "N"
-        else original_pack.bind(array).call(template)
+        else original.call(value, template)
         end
       end
 

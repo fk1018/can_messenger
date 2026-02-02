@@ -8,18 +8,24 @@ module CanMessenger
       attr_reader :interface_name, :logger, :endianness
 
       def self.native_endianness
-        native = [1].pack("I")
-        return :little if native == [1].pack("V")
-        return :big if native == [1].pack("N")
+        native = pack_uint(1, "I")
+        return :little if native == pack_uint(1, "V")
+        return :big if native == pack_uint(1, "N")
 
         # Fallback for unusual platforms.
         native.bytes.first == 1 ? :little : :big
       end
 
+      def self.pack_uint(value, template)
+        [value].pack(template)
+      end
+      private_class_method :pack_uint
+
       def initialize(interface_name:, logger:, endianness: :native)
         @interface_name = interface_name
         @logger = logger
-        @endianness = endianness == :native ? self.class.native_endianness : endianness
+        normalized_endianness = normalize_endianness(endianness)
+        @endianness = normalized_endianness == :native ? self.class.native_endianness : normalized_endianness
       end
 
       # Open a socket for the underlying interface.
@@ -41,6 +47,15 @@ module CanMessenger
       # Parse a raw frame string into a message hash.
       def parse_frame(frame:, can_fd: false)
         raise NotImplementedError, "parse_frame must be implemented in subclasses"
+      end
+
+      private
+
+      def normalize_endianness(endianness)
+        normalized = endianness.is_a?(String) ? endianness.strip.downcase.to_sym : endianness
+        return normalized if %i[native little big].include?(normalized)
+
+        raise ArgumentError, "endianness must be :native, :little, or :big"
       end
     end
   end

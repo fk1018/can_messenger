@@ -146,7 +146,7 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
     end
 
     it "logs errors and returns nil" do
-      allow_any_instance_of(String).to receive(:unpack1).and_raise(StandardError.new("boom"))
+      allow(adapter).to receive(:unpack_frame_id).and_raise(StandardError.new("boom"))
       expect(silent_logger).to receive(:error).with(/Error parsing CAN frame/)
       expect(adapter.parse_frame(frame: sample_frame)).to be_nil
     end
