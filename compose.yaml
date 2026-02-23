@@ -28,7 +28,7 @@ services:
       - docs_node_modules:/workspace/docs-site/node_modules
     ports:
       - "3000:3000"
-    command: sh -lc "npm ci && npm run start"
+    command: npm run start
 
 volumes:
   bundle_cache:

@@ -79,6 +79,19 @@ RSpec.describe CanMessenger::DBC do
       expect(decoded[:signals][:Val]).to eq(42.0)
     end
 
+    it "handles one-bit big endian signals at start_bit 0" do
+      text = <<~DBC
+        BO_ 1 OneBitBE: 1 Node
+        SG_ Flag : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+      DBC
+      one_bit_dbc = described_class.new(text)
+      frame = one_bit_dbc.encode_can("OneBitBE", Flag: 1)
+      expect(frame[:data].first).to eq(0x01)
+
+      decoded = one_bit_dbc.decode_can(frame[:id], frame[:data])
+      expect(decoded[:signals][:Flag]).to eq(1.0)
+    end
+
     it "handles multi-byte big endian signals starting at byte boundaries" do
       text = <<~DBC
         BO_ 1 Big16: 2 Node

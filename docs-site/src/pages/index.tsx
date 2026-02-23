@@ -1,5 +1,8 @@
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import versions from '../../versions.json';
+
+const stableVersion = Array.isArray(versions) && versions.length > 0 ? versions[0] : 'stable';
 
 export default function Home(): JSX.Element {
   return (
@@ -11,7 +14,7 @@ export default function Home(): JSX.Element {
           <code>/docs/next</code>.
         </p>
         <p>
-          <Link to="/docs">Read stable docs (2.1.0)</Link>
+          <Link to="/docs">Read stable docs ({stableVersion})</Link>
         </p>
         <p>
           <Link to="/docs/next">Read next docs</Link>

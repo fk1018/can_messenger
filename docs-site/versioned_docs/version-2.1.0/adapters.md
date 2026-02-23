@@ -23,6 +23,17 @@ Custom adapters should subclass `CanMessenger::Adapter::Base` and implement:
 - `receive_message(socket:, can_fd: false)`
 - `parse_frame(frame:, can_fd: false)`
 
+`Socketcan#parse_frame` additionally supports `can_fd: nil` as an auto-detect
+mode when parsing raw frames directly:
+
+- `nil`: infer CAN FD from frame size (`>= CANFD_FRAME_SIZE`).
+- `false`: force classic CAN parse.
+- `true`: force CAN FD parse.
+
+For custom adapters, keep the base signature compatible, and if you expose
+direct frame parsing outside the listener path, consider supporting a similar
+auto-detect sentinel.
+
 ## Injecting an Adapter
 
 You can pass either a class or an already-built instance:

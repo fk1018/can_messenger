@@ -516,9 +516,12 @@ module CanMessenger
     end
 
     def invalid_bit_position(max_allowed_bit)
-      length.times
-            .map { |i| calculate_bit_position(i) }
-            .find { |bit_pos| bit_pos.negative? || bit_pos > max_allowed_bit }
+      length.times do |i|
+        bit_pos = calculate_bit_position(i)
+        return bit_pos if bit_pos.negative? || bit_pos > max_allowed_bit
+      end
+
+      nil
     end
 
     def max_allowed_bit_for(message_size_bytes)

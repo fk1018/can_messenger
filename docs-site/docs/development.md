@@ -11,6 +11,7 @@ These docs describe active development workflow after the `2.1.0` snapshot.
 From repository root:
 
 ```bash
+docker compose run --rm docs npm ci
 docker compose build app
 docker compose run --rm lint
 docker compose run --rm test
