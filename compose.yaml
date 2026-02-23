@@ -1,0 +1,25 @@
+x-app-base: &app-base
+  build:
+    context: .
+    args:
+      RUBY_VERSION: ${RUBY_VERSION:-4.0.1}
+  working_dir: /app
+  volumes:
+    - .:/app
+    - bundle_cache:/usr/local/bundle
+
+services:
+  app:
+    <<: *app-base
+  lint:
+    <<: *app-base
+    command: bundle exec rubocop
+  test:
+    <<: *app-base
+    command: bundle exec rake test:rspec
+  build:
+    <<: *app-base
+    command: bundle exec rake build
+
+volumes:
+  bundle_cache:
