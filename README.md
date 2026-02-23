@@ -233,6 +233,24 @@ Build the gem:
 docker compose run --rm build
 ```
 
+Install docs dependencies (Docusaurus):
+
+```bash
+docker compose run --rm docs npm ci
+```
+
+Build the docs site:
+
+```bash
+docker compose run --rm docs npm run build
+```
+
+Preview docs locally:
+
+```bash
+docker compose run --rm --service-ports docs npm run start
+```
+
 ### Local Ruby workflow
 
 If you already have Ruby installed locally, you can still use:

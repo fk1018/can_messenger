@@ -7,18 +7,13 @@ module CanMessenger
     @endianness: Symbol
     @can_fd: bool
 
-    FRAME_SIZE: Integer
-    CANFD_FRAME_SIZE: Integer
-    MIN_FRAME_SIZE: Integer
-    MAX_FD_DATA: Integer
-    TIMEOUT: String
-
     # Initializes a new Messenger instance
     def initialize: (
         interface_name: String,
         ?logger: Logger?,
         ?endianness: Symbol,
-        ?can_fd: bool
+        ?can_fd: bool,
+        ?adapter: untyped
       ) -> void
 
     # Sends a CAN message by writing directly to a raw CAN socket
@@ -43,33 +38,23 @@ module CanMessenger
         ?filter: (Integer | Range[Integer] | Array[Integer])?,
         ?can_fd: bool?,
         ?dbc: CanMessenger::DBC?
-      ) { ({ id: Integer, data: Array[Integer], extended: bool, decoded: untyped }) -> void } -> void
+      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped }) -> void } -> void
 
     # Stops the listening loop
     def stop_listening: () -> void
 
     private
 
-    # Creates and configures a CAN socket bound to the interface
-    def open_can_socket: (?can_fd: bool) -> (Socket | nil)
-
     # Opens a socket, yields it, and closes it when done
-    def with_socket: (?can_fd: bool) { (Socket) -> void } -> void
-
-    # Builds a raw CAN or CAN FD frame for SocketCAN
-    def build_can_frame: (id: Integer, data: Array[Integer], ?extended_id: bool, ?can_fd: bool) -> String
+    def with_socket: (?can_fd: bool) { (untyped) -> void } -> void
 
     # Processes a single CAN message from socket
-    def process_message: (Socket socket, (Integer | Range[Integer] | Array[Integer])? filter, bool can_fd, CanMessenger::DBC? dbc) { ({ id: Integer, data: Array[Integer], extended: bool, decoded: untyped }) -> void } -> void
-
-    # Reads a frame from the socket and parses it
-    def receive_message: (socket: Socket, ?can_fd: bool) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
-
-    # Parses a raw CAN frame into a hash
-    def parse_frame: (frame: String, ?can_fd: bool?) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
-
-    # Unpacks the frame ID respecting endianness
-    def unpack_frame_id: (frame: String) -> Integer
+    def process_message: (
+      untyped socket,
+      (Integer | Range[Integer] | Array[Integer])? filter,
+      bool can_fd,
+      CanMessenger::DBC? dbc
+    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped }) -> void } -> void
 
     # Checks whether the given message ID matches the specified filter
     def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool

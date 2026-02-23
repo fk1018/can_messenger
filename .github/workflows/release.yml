@@ -1,9 +1,7 @@
 name: Tag and Publish Gem to RubyGems
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   tag_and_release:

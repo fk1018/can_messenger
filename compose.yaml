@@ -20,6 +20,16 @@ services:
   build:
     <<: *app-base
     command: bundle exec rake build
+  docs:
+    image: node:24.13.1
+    working_dir: /workspace/docs-site
+    volumes:
+      - .:/workspace
+      - docs_node_modules:/workspace/docs-site/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -lc "npm ci && npm run start"
 
 volumes:
   bundle_cache:
+  docs_node_modules:

@@ -283,15 +283,15 @@ module CanMessenger
     # @return [void]
     # @raise [ArgumentError] If signal bits exceed message boundaries or start_bit is negative
     def validate_signal_bounds(message_size_bytes)
-      max_bit = start_bit + length - 1
-      max_allowed_bit = (message_size_bytes * 8) - 1
-
       raise ArgumentError, "Signal #{name}: start_bit (#{start_bit}) cannot be negative" if start_bit.negative?
+      raise ArgumentError, "Signal #{name}: length (#{length}) must be positive" if length <= 0
 
-      return unless max_bit > max_allowed_bit
+      max_allowed_bit = max_allowed_bit_for(message_size_bytes)
+      invalid_position = invalid_bit_position(max_allowed_bit)
+      return unless invalid_position
 
       raise ArgumentError,
-            "Signal #{name}: signal bits #{start_bit}..#{max_bit} exceed message size " \
+            "Signal #{name}: bit position #{invalid_position} exceeds message size " \
             "(#{message_size_bytes} bytes = #{max_allowed_bit + 1} bits)"
     end
 
@@ -328,9 +328,15 @@ module CanMessenger
     # @return [void]
     # @raise [ArgumentError] If an unsigned value is negative
     def validate_unsigned_value(raw)
-      return unless sign == :unsigned && raw.negative?
+      return unless sign == :unsigned
 
-      raise ArgumentError, "Unsigned value cannot be negative: #{raw}"
+      raise ArgumentError, "Unsigned value cannot be negative: #{raw}" if raw.negative?
+
+      max_val = (1 << length) - 1
+      return if raw <= max_val
+
+      raise ArgumentError,
+            "Unsigned value #{raw} out of range [0..#{max_val}] for #{length}-bit field"
     end
 
     # Validates signed values to ensure they fit in the signal's bit range.
@@ -396,19 +402,12 @@ module CanMessenger
       if endianness == :little
         start_bit + bit_offset
       else
-        # For big-endian signals, the bit numbering within a byte follows MSB-first
-        # ordering. This means that the most significant bit (MSB) is numbered 7,
-        # and the least significant bit (LSB) is numbered 0. To calculate the absolute
-        # bit position, we first determine the position of the MSB in the starting byte.
-        #
-        # The formula ((start_bit / 8) * 8) calculates the starting byte's base bit
-        # position (aligned to the nearest multiple of 8). Adding (7 - (start_bit % 8))
-        # adjusts this base position to point to the MSB of the starting byte.
-        #
-        # Finally, we subtract the bit offset to account for the signal's length and
-        # position within the message.
-        base = ((start_bit / 8) * 8) + (7 - (start_bit % 8))
-        base - bit_offset
+        # DBC big-endian (`@0`) start_bit is in sawtooth numbering and points at the
+        # signal MSB. Convert to sequential network numbering, move toward the LSB,
+        # then convert back to the little-endian bit index used by byte writes.
+        network_start = sawtooth_to_network_bitnum(start_bit)
+        network_bit = network_start + (length - 1 - bit_offset)
+        sawtooth_to_network_bitnum(network_bit)
       end
     end
 
@@ -510,6 +509,20 @@ module CanMessenger
 
       msb_set = (value >> (length - 1)).allbits?(1)
       msb_set ? value - (1 << length) : value
+    end
+
+    def sawtooth_to_network_bitnum(bitnum)
+      (8 * (bitnum / 8)) + (7 - (bitnum % 8))
+    end
+
+    def invalid_bit_position(max_allowed_bit)
+      length.times
+            .map { |i| calculate_bit_position(i) }
+            .find { |bit_pos| bit_pos.negative? || bit_pos > max_allowed_bit }
+    end
+
+    def max_allowed_bit_for(message_size_bytes)
+      (message_size_bytes * 8) - 1
     end
   end
 end

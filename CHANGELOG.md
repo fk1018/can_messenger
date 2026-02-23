@@ -1,5 +1,19 @@
 ## [Unreleased]
 
+## [2.1.0] - 2026-02-23
+
+### Changed
+
+- Promote the first stable docs snapshot version to `2.1.0`.
+- Tighten DBC signal bounds validation and report exact out-of-range bit positions.
+
+### Fixed
+
+- Fix DBC big-endian (`@0`) bit mapping for multi-byte signals.
+- Reject unsigned DBC signal values that exceed the field's bit-length range instead of silently wrapping.
+- Align `Messenger` RBS signatures with runtime behavior (`adapter:` support and correct private method surface).
+- Update DBC specs to cover the corrected big-endian behavior and unsigned overflow errors.
+
 ## [2.0.0] - 2026-02-02
 
 ### Changed
@@ -150,6 +164,7 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
+  [2.1.0]: https://github.com/fk1018/can_messenger/compare/v2.0.0...v2.1.0
   [2.0.0]: https://github.com/fk1018/can_messenger/compare/v1.3.0...v2.0.0
   [1.3.0]: https://github.com/fk1018/can_messenger/compare/v1.2.1...v1.3.0
   [1.2.1]: https://github.com/fk1018/can_messenger/compare/v1.2.0...v1.2.1

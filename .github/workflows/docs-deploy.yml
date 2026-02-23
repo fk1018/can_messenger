@@ -1,0 +1,66 @@
+name: Deploy Docs Site
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.1
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Build docs site
+        working-directory: docs-site
+        run: npm run build
+
+      - name: Checkout GitHub Pages repository
+        uses: actions/checkout@v4
+        with:
+          repository: can-messenger/can-messenger.github.io
+          ref: main
+          token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          path: gh-pages
+
+      - name: Sync build output
+        run: rsync -av --delete --exclude='.git/' docs-site/build/ gh-pages/
+
+      - name: Commit updated site
+        id: commit
+        working-directory: gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git commit -m "Deploy docs from ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push updated site
+        if: steps.commit.outputs.changed == 'true'
+        working-directory: gh-pages
+        run: git push origin main
