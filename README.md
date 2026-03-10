@@ -13,6 +13,7 @@
 ## Requirements
 
 - Ruby 4.0.1 or higher.
+- Docker (optional, for containerized development without installing Ruby locally).
 
 ## Installation
 
@@ -206,7 +207,58 @@ Before using `can_messenger`, please note the following:
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test:rspec` to execute the test suite.
+### Docker-first workflow (no local Ruby required)
+
+Build the development image:
+
+```bash
+docker compose build app
+```
+
+Run RuboCop:
+
+```bash
+docker compose run --rm lint
+```
+
+Run the test suite:
+
+```bash
+docker compose run --rm test
+```
+
+Build the gem:
+
+```bash
+docker compose run --rm build
+```
+
+Install docs dependencies (Docusaurus):
+
+```bash
+docker compose run --rm docs npm ci
+```
+
+Build the docs site:
+
+```bash
+docker compose run --rm docs npm run build
+```
+
+Preview docs locally:
+
+```bash
+docker compose run --rm --service-ports docs npm run start
+```
+
+### Local Ruby workflow
+
+If you already have Ruby installed locally, you can still use:
+
+```bash
+bin/setup
+bundle exec rake test:rspec
+```
 
 ## Contributing
 

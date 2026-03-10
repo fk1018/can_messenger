@@ -1,0 +1,35 @@
+x-app-base: &app-base
+  build:
+    context: .
+    args:
+      RUBY_VERSION: ${RUBY_VERSION:-4.0.1}
+  working_dir: /app
+  volumes:
+    - .:/app
+    - bundle_cache:/usr/local/bundle
+
+services:
+  app:
+    <<: *app-base
+  lint:
+    <<: *app-base
+    command: bundle exec rubocop
+  test:
+    <<: *app-base
+    command: bundle exec rake test:rspec
+  build:
+    <<: *app-base
+    command: bundle exec rake build
+  docs:
+    image: node:24.13.1
+    working_dir: /workspace/docs-site
+    volumes:
+      - .:/workspace
+      - docs_node_modules:/workspace/docs-site/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -lc "if [ ! -x node_modules/.bin/docusaurus ]; then npm ci; fi && npm run start"
+
+volumes:
+  bundle_cache:
+  docs_node_modules:

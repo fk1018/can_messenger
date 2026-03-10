@@ -79,6 +79,32 @@ RSpec.describe CanMessenger::DBC do
       expect(decoded[:signals][:Val]).to eq(42.0)
     end
 
+    it "handles one-bit big endian signals at start_bit 0" do
+      text = <<~DBC
+        BO_ 1 OneBitBE: 1 Node
+        SG_ Flag : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+      DBC
+      one_bit_dbc = described_class.new(text)
+      frame = one_bit_dbc.encode_can("OneBitBE", Flag: 1)
+      expect(frame[:data].first).to eq(0x01)
+
+      decoded = one_bit_dbc.decode_can(frame[:id], frame[:data])
+      expect(decoded[:signals][:Flag]).to eq(1.0)
+    end
+
+    it "handles multi-byte big endian signals starting at byte boundaries" do
+      text = <<~DBC
+        BO_ 1 Big16: 2 Node
+        SG_ Val : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+      DBC
+      be16_dbc = described_class.new(text)
+      frame = be16_dbc.encode_can("Big16", Val: 0x1234)
+      expect(frame[:data].first(2)).to eq([0x12, 0x34])
+
+      decoded = be16_dbc.decode_can(frame[:id], frame[:data])
+      expect(decoded[:signals][:Val]).to eq(0x1234)
+    end
+
     it "handles big endian signals crossing byte boundaries" do
       text = <<~DBC
         BO_ 1 Cross: 3 Node
@@ -86,7 +112,7 @@ RSpec.describe CanMessenger::DBC do
       DBC
       cross_dbc = described_class.new(text)
       frame = cross_dbc.encode_can("Cross", A: 0xabc)
-      expect(frame[:data].first(3)).to eq([0xD5, 0x03, 0x00])
+      expect(frame[:data].first(3)).to eq([0x00, 0x15, 0x78])
       decoded = cross_dbc.decode_can(frame[:id], frame[:data])
       expect(decoded[:signals][:A]).to eq(0xabc)
     end
@@ -133,6 +159,12 @@ RSpec.describe CanMessenger::DBC do
       end.to raise_error(ArgumentError, "Unsigned value cannot be negative: -1")
     end
 
+    it "raises error for out of range unsigned values" do
+      expect do
+        dbc.encode_can("Example", Speed: 256)
+      end.to raise_error(ArgumentError, /Unsigned value 256 out of range/)
+    end
+
     it "raises error for out of range signed values" do
       text = <<~DBC
         BO_ 1 Signed: 1 Node
@@ -149,7 +181,7 @@ RSpec.describe CanMessenger::DBC do
         SG_ Val : 8|8@1+ (1,0) [0|255] "" Vector__XXX
       DBC
       oob_dbc = described_class.new(text)
-      expect { oob_dbc.encode_can("OutOfBounds", Val: 1) }.to raise_error(ArgumentError, /exceed message size/)
+      expect { oob_dbc.encode_can("OutOfBounds", Val: 1) }.to raise_error(ArgumentError, /exceeds message size/)
     end
 
     it "raises error for negative start bit" do

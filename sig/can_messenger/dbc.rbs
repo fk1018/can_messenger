@@ -132,5 +132,14 @@ module CanMessenger
 
     # Converts unsigned value to signed if the signal is signed and the MSB is set
     def convert_to_signed_if_needed: (Integer value) -> Integer
+
+    # Converts a sawtooth bit number to sequential network bit numbering
+    def sawtooth_to_network_bitnum: (Integer bitnum) -> Integer
+
+    # Returns the first invalid bit position for this signal, if any
+    def invalid_bit_position: (Integer max_allowed_bit) -> (Integer | nil)
+
+    # Calculates the maximum valid bit index for a message size
+    def max_allowed_bit_for: (Integer message_size_bytes) -> Integer
   end
 end

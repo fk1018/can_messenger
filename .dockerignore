@@ -1,0 +1,8 @@
+.git
+.github
+.bundle
+coverage
+pkg
+tmp
+log
+*.gem
