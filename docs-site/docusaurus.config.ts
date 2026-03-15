@@ -23,16 +23,20 @@ const config: Config = {
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
           includeCurrentVersion: true,
-          lastVersion: '2.1.0',
+          lastVersion: '2.2.0',
           versions: {
             current: {
               label: 'next',
               path: 'next',
               banner: 'unreleased'
             },
+            '2.2.0': {
+              label: '2.2.0',
+              path: ''
+            },
             '2.1.0': {
               label: '2.1.0',
-              path: ''
+              path: '2.1.0'
             }
           }
         },
@@ -70,6 +74,11 @@ const config: Config = {
           dropdownActiveClassDisabled: true
         },
         {
+          href: 'https://rubygems.org/gems/can_messenger',
+          label: 'RubyGems',
+          position: 'right'
+        },
+        {
           href: 'https://github.com/fk1018/can_messenger',
           label: 'GitHub',
           position: 'right'
@@ -95,6 +104,10 @@ const config: Config = {
         {
           title: 'Community',
           items: [
+            {
+              label: 'RubyGems',
+              href: 'https://rubygems.org/gems/can_messenger'
+            },
             {
               label: 'GitHub',
               href: 'https://github.com/fk1018/can_messenger'

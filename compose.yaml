@@ -11,15 +11,16 @@ x-app-base: &app-base
 services:
   app:
     <<: *app-base
+    command: sh -lc "set -e; bundle check || bundle install; exec bash"
   lint:
     <<: *app-base
-    command: bundle exec rubocop
+    command: sh -lc "set -e; bundle check || bundle install; bundle exec rubocop"
   test:
     <<: *app-base
-    command: bundle exec rake test:rspec
+    command: sh -lc "set -e; bundle check || bundle install; bundle exec rake test:rspec"
   build:
     <<: *app-base
-    command: bundle exec rake build
+    command: sh -lc "set -e; bundle check || bundle install; bundle exec rake build"
   docs:
     image: node:24.13.1
     working_dir: /workspace/docs-site

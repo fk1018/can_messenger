@@ -35,6 +35,8 @@ Or install it yourself with:
 gem install can_messenger
 ```
 
+RubyGems page: [https://rubygems.org/gems/can_messenger](https://rubygems.org/gems/can_messenger)
+
 ## Usage
 
 ### Initializing the Messenger
@@ -128,6 +130,8 @@ messenger.start_listening(dbc: dbc) do |msg|
 end
 ```
 
+If the DBC message definition uses an extended CAN ID, `send_dbc_message` automatically sends it as an extended frame and `start_listening(dbc: ...)` decodes received extended frames back through the same DBC definition.
+
 ### Stopping the Listener
 
 To stop listening, use:
@@ -207,13 +211,15 @@ Before using `can_messenger`, please note the following:
 
 ## Development
 
-### Docker-first workflow (no local Ruby required)
+### Docker-first workflow
 
 Build the development image:
 
 ```bash
 docker compose build app
 ```
+
+The Ruby services automatically run `bundle check || bundle install` inside the container, so an existing bundle cache volume stays usable after dependency changes.
 
 Run RuboCop:
 

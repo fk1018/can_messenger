@@ -2,9 +2,9 @@
 sidebar_position: 7
 ---
 
-# Development (next)
+# Development Notes (2.2.0)
 
-These docs describe active development workflow after the `2.2.0` snapshot.
+This page captures the `2.2.0` release snapshot.
 
 ## Docker-first Workflow
 

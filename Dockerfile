@@ -15,7 +15,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy files needed to resolve and install gems first for better layer caching.
-COPY Gemfile can_messenger.gemspec ./
+COPY Gemfile Gemfile.lock can_messenger.gemspec ./
 COPY lib/can_messenger/version.rb lib/can_messenger/version.rb
 
 RUN bundle install

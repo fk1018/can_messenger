@@ -15,7 +15,6 @@
 /log/
 /.byebug_history
 **/*.orig
-*.lock
 /node_modules/
 /vendor/bundle
 .DS_Store

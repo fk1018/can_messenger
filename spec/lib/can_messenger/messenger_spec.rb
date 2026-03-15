@@ -87,6 +87,12 @@ RSpec.describe CanMessenger::Messenger do
       messenger.send_dbc_message(message_name: "Example", signals: { speed: 1 }, dbc: dbc)
     end
 
+    it "sends DBC-defined extended frames with a normalized ID" do
+      allow(dbc).to receive(:encode_can).and_return(id: 0x80000123, data: [0x11])
+      expect(messenger).to receive(:send_can_message).with(id: 0x123, data: [0x11], extended_id: true, can_fd: nil)
+      messenger.send_dbc_message(message_name: "Example", signals: { speed: 1 }, dbc: dbc)
+    end
+
     it "logs errors when encoding fails" do
       allow(dbc).to receive(:encode_can).and_raise(StandardError, "boom")
       expect(silent_logger).to receive(:error).with(/Error sending DBC message/)
@@ -109,6 +115,21 @@ RSpec.describe CanMessenger::Messenger do
     it "logs an error when no block is given" do
       expect(silent_logger).to receive(:error).with(/No block provided/)
       messenger.start_listening
+    end
+
+    it "continues listening after a callback error" do
+      msg = { id: 1, data: [0xAA], extended: false }
+      allow(mock_adapter).to receive(:receive_message).and_return(msg, msg)
+      received = 0
+
+      messenger.start_listening do |_message|
+        received += 1
+        raise "boom" if received == 1
+
+        messenger.stop_listening
+      end
+
+      expect(received).to eq(2)
     end
   end
 
@@ -165,6 +186,18 @@ RSpec.describe CanMessenger::Messenger do
       decoded = { name: "Example", signals: { speed: 1 } }
       allow(mock_adapter).to receive(:receive_message).and_return(message)
       allow(dbc).to receive(:decode_can).and_return(decoded)
+
+      received = nil
+      messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }
+
+      expect(received[:decoded]).to eq(decoded)
+    end
+
+    it "reconstructs the extended DBC ID before decoding" do
+      message = { id: 0x123, data: [0x01], extended: true }
+      decoded = { name: "Example", signals: { speed: 1 } }
+      allow(mock_adapter).to receive(:receive_message).and_return(message)
+      expect(dbc).to receive(:decode_can).with(0x80000123, [0x01]).and_return(decoded)
 
       received = nil
       messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }

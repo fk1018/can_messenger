@@ -71,16 +71,34 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
       expect(adapter.endianness).to eq(described_class.native_endianness)
     end
 
-    it "packs ID little-endian when endianness is :little" do
+    it "packs extended IDs little-endian when endianness is :little" do
       le = described_class.new(interface_name: interface, logger: silent_logger, endianness: :little)
-      frame = le.build_can_frame(id: 0x12345678, data: [])
-      expect(frame[0..3]).to eq([0x78, 0x56, 0x34, 0x12].pack("C*"))
+      frame = le.build_can_frame(id: 0x12345678, data: [], extended_id: true)
+      expect(frame[0..3]).to eq([0x78, 0x56, 0x34, 0x92].pack("C*"))
     end
 
     it "sets the extended ID bit" do
       frame = adapter.build_can_frame(id: 0x1ABC, data: [], extended_id: true)
       raw_id = unpack_id(frame[0..3], adapter.endianness)
       expect(raw_id & 0x80000000).not_to be_zero
+    end
+
+    it "raises error for a negative CAN ID" do
+      expect { adapter.build_can_frame(id: -1, data: []) }.to raise_error(ArgumentError, /cannot be negative/)
+    end
+
+    it "raises error for a non-integer CAN ID" do
+      expect { adapter.build_can_frame(id: "123", data: []) }.to raise_error(ArgumentError, /must be an Integer/)
+    end
+
+    it "raises error for a standard CAN ID above 0x7FF" do
+      expect { adapter.build_can_frame(id: 0x800, data: []) }.to raise_error(ArgumentError, /0x7FF/)
+    end
+
+    it "raises error for an extended CAN ID above 0x1FFFFFFF" do
+      expect do
+        adapter.build_can_frame(id: 0x20000000, data: [], extended_id: true)
+      end.to raise_error(ArgumentError, /0x1FFFFFFF/)
     end
 
     it "raises error when data length exceeds 8 bytes" do
@@ -95,6 +113,12 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
       data = Array.new(64, 0xAA)
       frame = adapter.build_can_frame(id: 0x123, data: data, can_fd: true)
       expect(frame.bytesize).to eq(72)
+    end
+
+    it "keeps a valid standard CAN ID unchanged" do
+      frame = adapter.build_can_frame(id: 0x7FF, data: [])
+      raw_id = unpack_id(frame[0..3], adapter.endianness)
+      expect(raw_id).to eq(0x7FF)
     end
   end
 

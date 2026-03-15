@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-11
+
+### Changed
+
+- Make the Ruby Docker workflow install gems against the checked-in lockfile and self-heal stale bundle cache volumes.
+- Promote the docs site stable snapshot to `2.2.0` and add global RubyGems navigation links.
+
+### Fixed
+
+- Respect DBC-defined extended CAN IDs when sending messages and when decoding received extended frames.
+- Reject invalid outbound CAN IDs instead of silently coercing them to a different wire value.
+
 ## [2.1.0] - 2026-02-23
 
 ### Changed
@@ -164,7 +176,8 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
-  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.1.0...HEAD
+  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.2.0...HEAD
+  [2.2.0]: https://github.com/fk1018/can_messenger/compare/v2.1.0...v2.2.0
   [2.1.0]: https://github.com/fk1018/can_messenger/compare/v2.0.0...v2.1.0
   [2.0.0]: https://github.com/fk1018/can_messenger/compare/v1.3.0...v2.0.0
   [1.3.0]: https://github.com/fk1018/can_messenger/compare/v1.2.1...v1.3.0
