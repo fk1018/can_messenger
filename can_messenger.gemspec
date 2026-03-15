@@ -11,15 +11,14 @@ Gem::Specification.new do |spec|
   spec.summary       = "A simple Ruby wrapper to read and write CAN bus messages."
   spec.description   = "CanMessenger provides an interface to send and receive messages over the CAN bus, useful for applications requiring CAN communication in Ruby." # rubocop:disable Layout/LineLength
   spec.homepage      = "https://can-messenger.github.io/"
-  spec.source_code_uri   = "https://github.com/fk1018/can_messenger"
   spec.license       = "MIT"
   spec.required_ruby_version = ">= 4.0.1"
 
   # Metadata for RubyGems
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.source_code_uri
-  spec.metadata["changelog_uri"] = "#{spec.source_code_uri}/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = "https://github.com/fk1018/can_messenger"
+  spec.metadata["changelog_uri"] = "https://github.com/fk1018/can_messenger/blob/main/CHANGELOG.md"
 
   # Files to include in the gem package
   spec.files = Dir["lib/**/*", "README.md", "LICENSE.txt", "CHANGELOG.md"]
