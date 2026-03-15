@@ -2,6 +2,7 @@
 
 require "logger"
 require_relative "adapter/socketcan"
+require_relative "constants"
 
 module CanMessenger
   # Messenger
@@ -16,9 +17,6 @@ module CanMessenger
   #     puts "Received: ID=#{message[:id]}, Data=#{message[:data].map { |b| '0x%02X' % b }}"
   #   end
   class Messenger
-    CAN_ID_MASK = 0x1FFFFFFF
-    EXTENDED_ID_FLAG = 0x80000000
-
     # Initializes a new Messenger instance.
     #
     # @param [String] interface_name The CAN interface to use (e.g., 'can0').
@@ -161,11 +159,11 @@ module CanMessenger
     end
 
     def normalize_can_id(id)
-      id & CAN_ID_MASK
+      id & Constants::CAN_ID_MASK
     end
 
     def dbc_extended_id?(id)
-      id.anybits?(EXTENDED_ID_FLAG)
+      id.anybits?(Constants::EXTENDED_ID_FLAG)
     end
 
     def normalized_dbc_message(encoded, extended_id:)
@@ -179,7 +177,7 @@ module CanMessenger
     def dbc_decode_id(message)
       return message[:id] unless message[:extended]
 
-      message[:id] | EXTENDED_ID_FLAG
+      message[:id] | Constants::EXTENDED_ID_FLAG
     end
   end
 end

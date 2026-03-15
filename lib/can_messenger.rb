@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "can_messenger/version"
+require_relative "can_messenger/constants"
 require_relative "can_messenger/messenger"
 require_relative "can_messenger/dbc"
 

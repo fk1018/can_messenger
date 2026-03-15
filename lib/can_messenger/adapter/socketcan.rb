@@ -2,6 +2,7 @@
 
 require "socket"
 require_relative "base"
+require_relative "../constants"
 
 module CanMessenger
   module Adapter
@@ -12,12 +13,10 @@ module CanMessenger
       MIN_FRAME_SIZE = 8
       MAX_FD_DATA = 64
       MAX_STANDARD_ID = 0x7FF
-      MAX_EXTENDED_ID = 0x1FFFFFFF
-      EXTENDED_ID_FLAG = 0x80000000
       TIMEOUT = [1, 0].pack("l_2")
 
       # Creates and configures a CAN socket bound to the interface.
-      def open_socket(can_fd: false)
+      def open_socket(can_fd: nil)
         socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
         configure_socket(socket, can_fd: can_fd)
         socket
@@ -28,7 +27,7 @@ module CanMessenger
       end
 
       # Builds a raw CAN or CAN FD frame for SocketCAN.
-      def build_can_frame(id:, data:, extended_id: false, can_fd: false) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/PerceivedComplexity
+      def build_can_frame(id:, data:, extended_id: false, can_fd: nil) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/PerceivedComplexity
         if can_fd
           raise ArgumentError, "CAN FD data cannot exceed #{MAX_FD_DATA} bytes" if data.size > MAX_FD_DATA
         elsif data.size > 8
@@ -39,7 +38,7 @@ module CanMessenger
 
         can_id = id
         # Set bit 31 for extended frames
-        can_id |= EXTENDED_ID_FLAG if extended_id
+        can_id |= Constants::EXTENDED_ID_FLAG if extended_id
 
         # Pack the ID based on endianness
         id_bytes = endianness == :big ? [can_id].pack("L>") : [can_id].pack("V")
@@ -56,7 +55,7 @@ module CanMessenger
       end
 
       # Reads a frame from the socket and parses it into a hash.
-      def receive_message(socket:, can_fd: false)
+      def receive_message(socket:, can_fd: nil)
         frame_size = can_fd ? CANFD_FRAME_SIZE : FRAME_SIZE
         frame = socket.recv(frame_size)
         return nil if frame.nil? || frame.size < MIN_FRAME_SIZE
@@ -76,8 +75,8 @@ module CanMessenger
         use_fd = can_fd.nil? ? frame.size >= CANFD_FRAME_SIZE : can_fd
 
         raw_id = unpack_frame_id(frame: frame)
-        extended = raw_id.anybits?(0x80000000)
-        id = raw_id & 0x1FFFFFFF
+        extended = raw_id.anybits?(Constants::EXTENDED_ID_FLAG)
+        id = raw_id & Constants::MAX_EXTENDED_ID
 
         data_length = if use_fd
                         frame[4].ord
@@ -129,7 +128,7 @@ module CanMessenger
         raise ArgumentError, "id must be an Integer" unless id.is_a?(Integer)
         raise ArgumentError, "CAN id cannot be negative" if id.negative?
 
-        max_id = extended_id ? MAX_EXTENDED_ID : MAX_STANDARD_ID
+        max_id = extended_id ? Constants::MAX_EXTENDED_ID : MAX_STANDARD_ID
         return if id <= max_id
 
         raise ArgumentError, "#{extended_id ? "Extended" : "Standard"} CAN id cannot exceed 0x#{max_id.to_s(16).upcase}"

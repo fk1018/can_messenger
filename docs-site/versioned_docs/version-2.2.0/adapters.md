@@ -18,10 +18,10 @@ By default, `Messenger` uses `CanMessenger::Adapter::Socketcan`, which:
 
 Custom adapters should subclass `CanMessenger::Adapter::Base` and implement:
 
-- `open_socket(can_fd: false)`
-- `build_can_frame(id:, data:, extended_id: false, can_fd: false)`
-- `receive_message(socket:, can_fd: false)`
-- `parse_frame(frame:, can_fd: false)`
+- `open_socket(can_fd: nil)`
+- `build_can_frame(id:, data:, extended_id: false, can_fd: nil)`
+- `receive_message(socket:, can_fd: nil)`
+- `parse_frame(frame:, can_fd: nil)`
 
 `Socketcan#parse_frame` additionally supports `can_fd: nil` as an auto-detect
 mode when parsing raw frames directly:
