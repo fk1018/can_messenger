@@ -11,6 +11,9 @@ module CanMessenger
       CANFD_FRAME_SIZE = 72
       MIN_FRAME_SIZE = 8
       MAX_FD_DATA = 64
+      MAX_STANDARD_ID = 0x7FF
+      MAX_EXTENDED_ID = 0x1FFFFFFF
+      EXTENDED_ID_FLAG = 0x80000000
       TIMEOUT = [1, 0].pack("l_2")
 
       # Creates and configures a CAN socket bound to the interface.
@@ -32,10 +35,11 @@ module CanMessenger
           raise ArgumentError, "CAN data cannot exceed 8 bytes"
         end
 
-        # Mask the ID to 29 bits
-        can_id = id & 0x1FFFFFFF
+        validate_can_id!(id, extended_id: extended_id)
+
+        can_id = id
         # Set bit 31 for extended frames
-        can_id |= 0x80000000 if extended_id
+        can_id |= EXTENDED_ID_FLAG if extended_id
 
         # Pack the ID based on endianness
         id_bytes = endianness == :big ? [can_id].pack("L>") : [can_id].pack("V")
@@ -119,6 +123,16 @@ module CanMessenger
         socket.close
       rescue StandardError
         # Ignore close errors so we can report the original failure.
+      end
+
+      def validate_can_id!(id, extended_id:)
+        raise ArgumentError, "id must be an Integer" unless id.is_a?(Integer)
+        raise ArgumentError, "CAN id cannot be negative" if id.negative?
+
+        max_id = extended_id ? MAX_EXTENDED_ID : MAX_STANDARD_ID
+        return if id <= max_id
+
+        raise ArgumentError, "#{extended_id ? "Extended" : "Standard"} CAN id cannot exceed 0x#{max_id.to_s(16).upcase}"
       end
     end
   end

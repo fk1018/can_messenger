@@ -16,6 +16,9 @@ module CanMessenger
   #     puts "Received: ID=#{message[:id]}, Data=#{message[:data].map { |b| '0x%02X' % b }}"
   #   end
   class Messenger
+    CAN_ID_MASK = 0x1FFFFFFF
+    EXTENDED_ID_FLAG = 0x80000000
+
     # Initializes a new Messenger instance.
     #
     # @param [String] interface_name The CAN interface to use (e.g., 'can0').
@@ -64,8 +67,8 @@ module CanMessenger
     def send_dbc_message(message_name:, signals:, dbc: @dbc, extended_id: false, can_fd: nil)
       raise ArgumentError, "dbc is required" if dbc.nil?
 
-      encoded = dbc.encode_can(message_name, signals)
-      send_can_message(id: encoded[:id], data: encoded[:data], extended_id: extended_id, can_fd: can_fd)
+      encoded = normalized_dbc_message(dbc.encode_can(message_name, signals), extended_id: extended_id)
+      send_can_message(id: encoded[:id], data: encoded[:data], extended_id: encoded[:extended_id], can_fd: can_fd)
     rescue ArgumentError
       raise
     rescue StandardError => e
@@ -134,7 +137,7 @@ module CanMessenger
       return if filter && !matches_filter?(message_id: message[:id], filter: filter)
 
       if dbc
-        decoded = dbc.decode_can(message[:id], message[:data])
+        decoded = dbc.decode_can(dbc_decode_id(message), message[:data])
         message[:decoded] = decoded if decoded
       end
 
@@ -155,6 +158,28 @@ module CanMessenger
       when Array   then filter.include?(message_id)
       else true
       end
+    end
+
+    def normalize_can_id(id)
+      id & CAN_ID_MASK
+    end
+
+    def dbc_extended_id?(id)
+      id.anybits?(EXTENDED_ID_FLAG)
+    end
+
+    def normalized_dbc_message(encoded, extended_id:)
+      {
+        id: normalize_can_id(encoded[:id]),
+        data: encoded[:data],
+        extended_id: extended_id || dbc_extended_id?(encoded[:id])
+      }
+    end
+
+    def dbc_decode_id(message)
+      return message[:id] unless message[:extended]
+
+      message[:id] | EXTENDED_ID_FLAG
     end
   end
 end

@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-11
+
+### Changed
+
+- Make the Ruby Docker workflow install gems against the checked-in lockfile and self-heal stale bundle cache volumes.
+- Promote the docs site stable snapshot to `2.2.0` and add global RubyGems navigation links.
+
+### Fixed
+
+- Respect DBC-defined extended CAN IDs when sending messages and when decoding received extended frames.
+- Reject invalid outbound CAN IDs instead of silently coercing them to a different wire value.
+
 ## [2.1.0] - 2026-02-23
 
 ### Changed

@@ -1,0 +1,11 @@
+{
+  "tutorialSidebar": [
+    "intro",
+    "installation",
+    "quickstart",
+    "messenger-api",
+    "dbc",
+    "adapters",
+    "development"
+  ]
+}

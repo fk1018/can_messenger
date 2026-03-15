@@ -153,6 +153,20 @@ RSpec.describe CanMessenger::DBC do
       expect(result).to be_nil
     end
 
+    it "matches extended DBC message IDs including the EFF bit" do
+      text = <<~DBC
+        BO_ 2147483939 ExtendedExample: 1 Node
+        SG_ Val : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+      DBC
+      extended_dbc = described_class.new(text)
+
+      frame = extended_dbc.encode_can("ExtendedExample", Val: 1)
+      decoded = extended_dbc.decode_can(frame[:id], frame[:data])
+
+      expect(frame[:id]).to eq(0x80000123)
+      expect(decoded).to eq(name: "ExtendedExample", signals: { Val: 1.0 })
+    end
+
     it "raises error for negative unsigned values" do
       expect do
         dbc.encode_can("Example", Speed: -1)
