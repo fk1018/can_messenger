@@ -23,7 +23,7 @@ Parameters:
 - `interface_name` (required): CAN interface name such as `can0` or `vcan0`.
 - `logger`: Defaults to `Logger.new($stdout)` when omitted.
 - `endianness`: `:native`, `:little`, or `:big` for CAN ID byte order.
-- `can_fd`: Default CAN FD behavior.
+- `can_fd`: Enable or disable CAN FD mode for this messenger instance.
 - `adapter`: Adapter class or instance implementing the base adapter contract.
 
 ## `send_can_message`
@@ -48,7 +48,7 @@ Behavior:
 
 - Requires a non-nil `dbc` instance.
 - Calls `dbc.encode_can(...)` and then sends the encoded frame.
-- Automatically sends DBC messages with the extended CAN flag when the DBC message ID includes the EFF bit.
+- Automatically sends DBC messages with the extended CAN flag when the DBC message ID has the extended format flag set.
 
 ## `start_listening`
 
