@@ -191,10 +191,20 @@ RSpec.describe CanMessenger::Messenger do
       end.to raise_error(ArgumentError, /only Integer values/)
     end
 
+    it "raises for unsupported filter types" do
+      expect do
+        messenger.send(:matches_filter?, message_id: 0x123, filter: :unsupported)
+      end.to raise_error(ArgumentError, /filter must be nil, an Integer, a Range of Integers, or an Array of Integers/)
+    end
+
     it "raises for ranges with non-integer endpoints" do
       expect do
         messenger.send(:validate_filter!, "0x100".."0x200")
       end.to raise_error(ArgumentError, /Integer endpoints/)
+    end
+
+    it "accepts arrays containing only integers" do
+      expect(messenger.send(:validate_filter!, [0x123, 0x124])).to be_nil
     end
   end
 

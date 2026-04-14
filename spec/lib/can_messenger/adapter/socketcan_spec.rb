@@ -104,6 +104,29 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
       expect(sockaddr[4, 4]).to eq([7].pack("i!"))
       expect(sockaddr[8, 16]).to eq("\x00" * 16)
     end
+
+    it "returns nil when getifaddrs raises a system error" do
+      allow(Socket).to receive(:getifaddrs).and_raise(Errno::ENOENT)
+
+      expect(adapter.send(:interface_index_from_ifaddrs)).to be_nil
+    end
+
+    it "returns nil when sysfs ifindex is not an integer" do
+      allow(File).to receive(:file?).and_call_original
+      allow(File).to receive(:read).and_call_original
+      allow(File).to receive(:file?).with("/sys/class/net/#{interface}/ifindex").and_return(true)
+      allow(File).to receive(:read).with("/sys/class/net/#{interface}/ifindex").and_return("invalid\n")
+
+      expect(adapter.send(:interface_index_from_sysfs)).to be_nil
+    end
+
+    it "raises when sockaddr_can size does not match the expected struct size" do
+      stub_const("#{described_class}::SOCKADDR_CAN_SIZE", 23)
+
+      expect do
+        adapter.send(:build_sockaddr_can, 7)
+      end.to raise_error(RuntimeError, /sockaddr_can must be 23 bytes, got 24/)
+    end
   end
 
   describe "#build_can_frame" do
