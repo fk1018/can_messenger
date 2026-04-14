@@ -31,6 +31,65 @@ RSpec.describe CanMessenger::DBC do
       multi = described_class.new(text)
       expect(multi.messages.keys).to match_array(%w[Msg1 Msg2])
     end
+
+    it "raises on malformed message lines with line context" do
+      text = <<~DBC
+        BO_ broken
+      DBC
+
+      expect { described_class.new(text) }.to raise_error(
+        ArgumentError,
+        /Invalid message definition at line 1: BO_ broken/
+      )
+    end
+
+    it "raises on malformed signal lines with line context" do
+      text = <<~DBC
+        BO_ 1 Msg: 1 Node
+        SG_ Speed : nope
+      DBC
+
+      expect { described_class.new(text) }.to raise_error(
+        ArgumentError,
+        /Invalid signal definition at line 2: SG_ Speed : nope/
+      )
+    end
+
+    it "raises on unsupported lines with line context" do
+      text = <<~DBC
+        BO_ 1 Msg: 1 Node
+        BROKEN LINE
+      DBC
+
+      expect { described_class.new(text) }.to raise_error(
+        ArgumentError,
+        /Unsupported or malformed DBC line at line 2: BROKEN LINE/
+      )
+    end
+
+    it "ignores allowlisted metadata lines" do
+      text = <<~DBC
+        VERSION "1.0"
+        NS_ :
+          NS_DESC_
+        BS_:
+        BU_: Vector__XXX
+        BA_DEF_ "BusType" STRING ;
+        BA_DEF_DEF_ "BusType" "CAN";
+        BA_ "BusType" "CAN";
+        VAL_ 256 Speed 0 "Off" 1 "On";
+        SIG_VALTYPE_ 256 Speed : 0;
+        CM_ BO_ 256 "Example";
+        BO_TX_BU_ 256 : Node1,Node2;
+        BO_ 256 Example: 8 ExampleNode
+        SG_ Speed : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+      DBC
+
+      dbc = described_class.new(text)
+
+      expect(dbc.messages.keys).to eq(["Example"])
+      expect(dbc.messages["Example"].signals.map(&:name)).to eq(["Speed"])
+    end
   end
 
   describe ".load" do
@@ -230,11 +289,12 @@ RSpec.describe CanMessenger::DBC do
       expect(empty_dbc.messages).to be_empty
     end
 
-    it "skips empty lines and comments" do
+    it "skips empty lines and allowlisted metadata" do
       text = <<~DBC
 
         BO_ 256 Example: 8 ExampleNode
         BO_TX_BU_ 256 : Node1,Node2;
+        CM_ BO_ 256 "Example";
         SG_ Speed : 0|8@1+ (1,0) [0|255] "" Vector__XXX
 
       DBC

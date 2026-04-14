@@ -58,6 +58,7 @@ messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
 ```
 
 > **Note:** Under the hood, the gem now writes CAN frames to a raw socket instead of calling `cansend`. No external dependencies are required beyond raw-socket permissions.
+> The SocketCAN adapter builds the Linux socket address itself, so it does not depend on Ruby exposing `CAN_RAW` or `pack_sockaddr_can`.
 
 If you need to send an extended CAN frame (29-bit ID), set extended_id: true. The gem then sets the Extended Frame Format (EFF) bit automatically:
 
@@ -87,6 +88,8 @@ end
 #### Listening with Filters
 
 The `start_listening` method supports filtering incoming messages based on CAN ID:
+
+Unsupported filter values now raise `ArgumentError`. Accepted values are `nil`, a single `Integer`, an `Integer` `Range`, or an `Array<Integer>`.
 
 - Single CAN ID:
 
@@ -126,11 +129,16 @@ messenger.send_dbc_message(dbc: dbc, message_name: 'Example', signals: { Speed: 
 messenger.start_listening(dbc: dbc) do |msg|
   if msg[:decoded]
     puts "#{msg[:decoded][:name]} => #{msg[:decoded][:signals]}"
+  elsif msg[:decode_error]
+    warn "DBC decode failed: #{msg[:decode_error][:class]} - #{msg[:decode_error][:message]}"
   end
 end
 ```
 
 If the DBC message definition uses an extended CAN ID, `send_dbc_message` automatically sends it as an extended frame and `start_listening(dbc: ...)` decodes received extended frames back through the same DBC definition.
+If DBC decoding raises because the payload does not match the signal definition, the raw frame is still yielded and includes `decode_error: { class:, message: }`.
+
+Malformed DBC files now fail fast with `ArgumentError` that includes the line number and offending line text. Standard metadata directives such as `VERSION`, `NS_`, `BU_`, `CM_`, `VAL_`, and `BA_*` are still ignored.
 
 ### Stopping the Listener
 
@@ -196,6 +204,7 @@ Before using `can_messenger`, please note the following:
 
 - **Logging:**
   - **Default Logger:** If no logger is provided, logs go to standard output. Provide a custom logger if you want more control.
+  - **DBC Decode Errors:** When `start_listening(dbc: ...)` cannot decode a frame, the raw frame is still yielded and a structured `decode_error` hash is attached.
 
 - **CAN Frame Format Assumptions:**
   - By default, the gem uses **native endianness** for CAN IDs (little-endian on most x86/ARM systems). **Changed in v2.0.0:** this default was previously `:big`. You can override this by passing `endianness: :big` or `endianness: :little`.

@@ -7,21 +7,14 @@ require "stringio"
 
 RSpec.describe CanMessenger::Adapter::Socketcan do
   before(:all) do
-    Socket.const_set(:CAN_RAW, 1) unless Socket.const_defined?(:CAN_RAW)
     Socket.const_set(:PF_CAN, 29) unless Socket.const_defined?(:PF_CAN)
-    Socket.const_set(:CAN_RAW_FD_FRAMES, 1) unless Socket.const_defined?(:CAN_RAW_FD_FRAMES)
-    Socket.const_set(:SOL_CAN_RAW, 101) unless Socket.const_defined?(:SOL_CAN_RAW)
-
-    unless Socket.respond_to?(:pack_sockaddr_can)
-      def Socket.pack_sockaddr_can(_interface)
-        "\x00" * 16
-      end
-    end
+    Socket.const_set(:AF_CAN, Socket::PF_CAN) unless Socket.const_defined?(:AF_CAN)
   end
 
   let(:interface) { "can0" }
   let(:log_output) { StringIO.new }
   let(:silent_logger) { Logger.new(log_output) }
+  let(:ifaddr) { instance_double("Socket::Ifaddr", name: interface, ifindex: 7) }
   subject(:adapter) { described_class.new(interface_name: interface, logger: silent_logger) }
 
   # Helper frame used across tests
@@ -42,27 +35,74 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
 
     before do
       allow(Socket).to receive(:open).and_return(mock_socket)
+      allow(Socket).to receive(:getifaddrs).and_return([ifaddr])
       allow(mock_socket).to receive(:bind)
       allow(mock_socket).to receive(:setsockopt)
+      allow(mock_socket).to receive(:closed?).and_return(false)
+      allow(mock_socket).to receive(:close)
     end
 
-    it "opens and configures a CAN socket" do
+    it "opens and configures a CAN socket without Ruby SocketCAN helpers" do
+      hide_const("Socket::CAN_RAW") if Socket.const_defined?(:CAN_RAW)
+      hide_const("Socket::SOL_CAN_RAW") if Socket.const_defined?(:SOL_CAN_RAW)
+      if Socket.respond_to?(:pack_sockaddr_can)
+        allow(Socket).to receive(:pack_sockaddr_can).and_raise("should not be called")
+      end
+
       adapter.open_socket
-      expect(Socket).to have_received(:open).with(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
-      expect(mock_socket).to have_received(:bind)
+      expect(Socket).to have_received(:open).with(Socket::PF_CAN, Socket::SOCK_RAW, described_class::CAN_RAW)
+      expect(mock_socket).to have_received(:bind).with(adapter.send(:build_sockaddr_can, 7))
       expect(mock_socket).to have_received(:setsockopt)
     end
 
     it "sets CAN_RAW_FD_FRAMES when can_fd is true" do
       allow(mock_socket).to receive(:setsockopt)
       adapter.open_socket(can_fd: true)
-      expect(mock_socket).to have_received(:setsockopt).with(Socket::SOL_CAN_RAW, Socket::CAN_RAW_FD_FRAMES, 1)
+      expect(mock_socket).to have_received(:setsockopt).with(
+        described_class::SOL_CAN_RAW,
+        described_class::CAN_RAW_FD_FRAMES,
+        1
+      )
+    end
+
+    it "falls back to sysfs when getifaddrs does not find the interface" do
+      allow(Socket).to receive(:getifaddrs).and_return([])
+      allow(File).to receive(:file?).and_call_original
+      allow(File).to receive(:read).and_call_original
+      allow(File).to receive(:file?).with("/sys/class/net/#{interface}/ifindex").and_return(true)
+      allow(File).to receive(:read).with("/sys/class/net/#{interface}/ifindex").and_return("12\n")
+
+      adapter.open_socket
+
+      expect(mock_socket).to have_received(:bind).with(adapter.send(:build_sockaddr_can, 12))
+    end
+
+    it "logs and returns nil when the interface is unknown" do
+      allow(Socket).to receive(:getifaddrs).and_return([])
+      allow(File).to receive(:file?).and_call_original
+      allow(File).to receive(:file?).with("/sys/class/net/#{interface}/ifindex").and_return(false)
+
+      expect(silent_logger).to receive(:error).with(/Unknown CAN interface #{interface}/)
+      expect(adapter.open_socket).to be_nil
+      expect(mock_socket).to have_received(:close)
     end
 
     it "logs and returns nil on error" do
       allow(Socket).to receive(:open).and_raise(StandardError.new("boom"))
       expect(silent_logger).to receive(:error).with(/Error creating CAN socket/)
       expect(adapter.open_socket).to be_nil
+    end
+  end
+
+  describe "Linux compatibility helpers" do
+    it "builds a 24-byte sockaddr_can with the expected layout" do
+      sockaddr = adapter.send(:build_sockaddr_can, 7)
+
+      expect(sockaddr.bytesize).to eq(described_class::SOCKADDR_CAN_SIZE)
+      expect(sockaddr[0, 2]).to eq([Socket::AF_CAN].pack("S!"))
+      expect(sockaddr[2, 2]).to eq("\x00\x00")
+      expect(sockaddr[4, 4]).to eq([7].pack("i!"))
+      expect(sockaddr[8, 16]).to eq("\x00" * 16)
     end
   end
 

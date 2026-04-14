@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+## [2.3.0] - 2026-03-25
+
+### Changed
+
+- Validate `start_listening(filter: ...)` inputs eagerly and reject unsupported filter types instead of treating them as match-all.
+- Make DBC parsing strict by default: malformed `BO_`/`SG_` lines and unknown non-empty directives now raise with line context.
+- Promote the docs site stable snapshot to `2.3.0`.
+
+### Fixed
+
+- Restore Linux SocketCAN compatibility in the default adapter without relying on Ruby exposing `CAN_RAW`, `SOL_CAN_RAW`, or `pack_sockaddr_can`.
+- Preserve raw received frames when DBC decoding fails and attach structured `decode_error` details instead of dropping the message.
+
 ## [2.2.0] - 2026-03-11
 
 ### Changed
@@ -176,7 +189,8 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
-  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.2.0...HEAD
+  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.3.0...HEAD
+  [2.3.0]: https://github.com/fk1018/can_messenger/compare/v2.2.0...v2.3.0
   [2.2.0]: https://github.com/fk1018/can_messenger/compare/v2.1.0...v2.2.0
   [2.1.0]: https://github.com/fk1018/can_messenger/compare/v2.0.0...v2.1.0
   [2.0.0]: https://github.com/fk1018/can_messenger/compare/v1.3.0...v2.0.0

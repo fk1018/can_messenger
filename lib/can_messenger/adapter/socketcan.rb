@@ -7,17 +7,25 @@ require_relative "../constants"
 module CanMessenger
   module Adapter
     # Adapter implementation for Linux SocketCAN interfaces.
-    class Socketcan < Base
+    class Socketcan < Base # rubocop:disable Metrics/ClassLength
+      CAN_RAW = 1
+      SOL_CAN_BASE = 100
+      SOL_CAN_RAW = SOL_CAN_BASE + CAN_RAW
+      CAN_RAW_FD_FRAMES = 5
       FRAME_SIZE = 16
       CANFD_FRAME_SIZE = 72
       MIN_FRAME_SIZE = 8
       MAX_FD_DATA = 64
       MAX_STANDARD_ID = 0x7FF
+      SOCKADDR_CAN_ADDR_SIZE = 16
+      SOCKADDR_CAN_SIZE = 24
+      SOCKADDR_CAN_PADDING = 2
       TIMEOUT = [1, 0].pack("l_2")
+      ZERO_CAN_ADDR = "\x00" * SOCKADDR_CAN_ADDR_SIZE
 
       # Creates and configures a CAN socket bound to the interface.
       def open_socket(can_fd: nil)
-        socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, Socket::CAN_RAW)
+        socket = Socket.open(Socket::PF_CAN, Socket::SOCK_RAW, CAN_RAW)
         configure_socket(socket, can_fd: can_fd)
         socket
       rescue StandardError => e
@@ -107,21 +115,60 @@ module CanMessenger
       end
 
       def configure_socket(socket, can_fd:)
-        socket.bind(Socket.pack_sockaddr_can(interface_name))
+        socket.bind(build_sockaddr_can(interface_index))
         socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, TIMEOUT)
-        return unless can_fd && Socket.const_defined?(:CAN_RAW_FD_FRAMES)
+        return unless can_fd
 
-        socket.setsockopt(Socket.const_defined?(:SOL_CAN_RAW) ? Socket::SOL_CAN_RAW : Socket::CAN_RAW,
-                          Socket::CAN_RAW_FD_FRAMES, 1)
+        socket.setsockopt(SOL_CAN_RAW, CAN_RAW_FD_FRAMES, 1)
       end
 
       def close_socket(socket)
         return unless socket
-        return if socket.closed?
+        return if socket.respond_to?(:closed?) && socket.closed?
 
         socket.close
       rescue StandardError
         # Ignore close errors so we can report the original failure.
+      end
+
+      def interface_index
+        index = interface_index_from_ifaddrs || interface_index_from_sysfs
+        return index if index
+
+        raise ArgumentError, "Unknown CAN interface #{interface_name}"
+      end
+
+      def interface_index_from_ifaddrs
+        return nil unless Socket.respond_to?(:getifaddrs)
+
+        Socket.getifaddrs.each do |ifaddr|
+          next unless ifaddr.name == interface_name
+          next unless ifaddr.ifindex&.positive?
+
+          return ifaddr.ifindex
+        end
+
+        nil
+      rescue NoMethodError, SystemCallError
+        nil
+      end
+
+      def interface_index_from_sysfs
+        ifindex_path = File.join("/sys/class/net", interface_name, "ifindex")
+        return nil unless File.file?(ifindex_path)
+
+        index = Integer(File.read(ifindex_path).strip, 10)
+        index.positive? ? index : nil
+      rescue ArgumentError, SystemCallError
+        nil
+      end
+
+      def build_sockaddr_can(ifindex)
+        can_family = Socket.const_defined?(:AF_CAN) ? Socket::AF_CAN : Socket::PF_CAN
+        sockaddr = [can_family, ifindex, ZERO_CAN_ADDR].pack("S!x#{SOCKADDR_CAN_PADDING}i!a#{SOCKADDR_CAN_ADDR_SIZE}")
+        return sockaddr if sockaddr.bytesize == SOCKADDR_CAN_SIZE
+
+        raise "sockaddr_can must be #{SOCKADDR_CAN_SIZE} bytes, got #{sockaddr.bytesize}"
       end
 
       def validate_can_id!(id, extended_id:)

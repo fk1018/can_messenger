@@ -3,11 +3,11 @@ sidebar_position: 1
 slug: /
 ---
 
-# Can Messenger Docs (next)
+# Can Messenger Docs (v2.3.0)
 
 `can_messenger` is a Ruby gem for reading and writing CAN frames on Linux SocketCAN interfaces.
 
-These `next` docs track upcoming changes after the `2.3.0` stable snapshot.
+These docs are the `2.3.0` release snapshot and track changes since the `2.2.0` stable release.
 
 ## Core Capabilities
 
