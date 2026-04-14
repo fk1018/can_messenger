@@ -248,7 +248,7 @@ Build the gem:
 docker compose run --rm build
 ```
 
-Install docs dependencies (Docusaurus):
+Warm docs dependency cache (optional):
 
 ```bash
 docker compose run --rm docs npm ci
@@ -257,13 +257,13 @@ docker compose run --rm docs npm ci
 Build the docs site:
 
 ```bash
-docker compose run --rm docs npm run build
+docker compose run --rm docs sh -lc "npm ci && npm run build"
 ```
 
 Preview docs locally:
 
 ```bash
-docker compose run --rm --service-ports docs npm run start
+docker compose up docs
 ```
 
 ### Local Ruby workflow
