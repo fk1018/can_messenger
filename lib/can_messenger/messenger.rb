@@ -16,7 +16,7 @@ module CanMessenger
   #   messenger.start_listening do |message|
   #     puts "Received: ID=#{message[:id]}, Data=#{message[:data].map { |b| '0x%02X' % b }}"
   #   end
-  class Messenger
+  class Messenger # rubocop:disable Metrics/ClassLength
     # Initializes a new Messenger instance.
     #
     # @param [String] interface_name The CAN interface to use (e.g., 'can0').
@@ -90,6 +90,7 @@ module CanMessenger
       return @logger.error("No block provided to handle messages.") unless block_given?
 
       @listening = true
+      validate_filter!(filter)
 
       use_fd = can_fd.nil? ? @can_fd : can_fd
 
@@ -134,10 +135,7 @@ module CanMessenger
       return if message.nil?
       return if filter && !matches_filter?(message_id: message[:id], filter: filter)
 
-      if dbc
-        decoded = dbc.decode_can(dbc_decode_id(message), message[:data])
-        message[:decoded] = decoded if decoded
-      end
+      attach_dbc_payload!(message, dbc) if dbc
 
       block.call(message)
     rescue StandardError => e
@@ -151,11 +149,48 @@ module CanMessenger
     # @return [Boolean]
     def matches_filter?(message_id:, filter:)
       case filter
+      when nil     then true
       when Integer then message_id == filter
       when Range   then filter.cover?(message_id)
-      when Array   then filter.include?(message_id)
-      else true
+      when Array
+        validate_array_filter!(filter)
+        filter.include?(message_id)
+      else
+        raise ArgumentError, "filter must be nil, an Integer, a Range of Integers, or an Array of Integers"
       end
+    end
+
+    def validate_filter!(filter)
+      case filter
+      when nil, Integer
+        nil
+      when Range
+        validate_range_filter!(filter)
+      when Array
+        validate_array_filter!(filter)
+      else
+        raise ArgumentError, "filter must be nil, an Integer, a Range of Integers, or an Array of Integers"
+      end
+    end
+
+    def validate_range_filter!(filter)
+      return if filter.begin.is_a?(Integer) && filter.end.is_a?(Integer)
+
+      raise ArgumentError, "filter ranges must use Integer endpoints"
+    end
+
+    def validate_array_filter!(filter)
+      return if filter.all?(Integer)
+
+      raise ArgumentError, "filter arrays must contain only Integer values"
+    end
+
+    def attach_dbc_payload!(message, dbc)
+      decoded = dbc.decode_can(dbc_decode_id(message), message[:data])
+      message[:decoded] = decoded if decoded
+    rescue StandardError => e
+      @logger.error("Error decoding DBC message 0x#{message[:id].to_s(16)}: #{e.message}")
+      message[:decode_error] = { class: e.class.name, message: e.message }
     end
 
     def normalize_can_id(id)

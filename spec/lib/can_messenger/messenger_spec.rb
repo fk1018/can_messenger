@@ -117,6 +117,14 @@ RSpec.describe CanMessenger::Messenger do
       messenger.start_listening
     end
 
+    it "raises for unsupported filter values before opening a socket" do
+      expect(mock_adapter).not_to receive(:open_socket)
+
+      expect do
+        messenger.start_listening(filter: "0x123") { |_| nil }
+      end.to raise_error(ArgumentError, /filter must be nil, an Integer, a Range of Integers, or an Array of Integers/)
+    end
+
     it "continues listening after a callback error" do
       msg = { id: 1, data: [0xAA], extended: false }
       allow(mock_adapter).to receive(:receive_message).and_return(msg, msg)
@@ -176,6 +184,28 @@ RSpec.describe CanMessenger::Messenger do
       expect(messenger.send(:matches_filter?, message_id: 0x123, filter: [0x123, 0x124])).to be(true)
       expect(messenger.send(:matches_filter?, message_id: 0x126, filter: [0x123, 0x124])).to be(false)
     end
+
+    it "raises for arrays with non-integer values" do
+      expect do
+        messenger.send(:matches_filter?, message_id: 0x123, filter: [0x123, "0x124"])
+      end.to raise_error(ArgumentError, /only Integer values/)
+    end
+
+    it "raises for unsupported filter types" do
+      expect do
+        messenger.send(:matches_filter?, message_id: 0x123, filter: :unsupported)
+      end.to raise_error(ArgumentError, /filter must be nil, an Integer, a Range of Integers, or an Array of Integers/)
+    end
+
+    it "raises for ranges with non-integer endpoints" do
+      expect do
+        messenger.send(:validate_filter!, "0x100".."0x200")
+      end.to raise_error(ArgumentError, /Integer endpoints/)
+    end
+
+    it "accepts arrays containing only integers" do
+      expect(messenger.send(:validate_filter!, [0x123, 0x124])).to be_nil
+    end
   end
 
   describe "#process_message" do
@@ -191,6 +221,20 @@ RSpec.describe CanMessenger::Messenger do
       messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }
 
       expect(received[:decoded]).to eq(decoded)
+    end
+
+    it "yields the raw frame with decode_error when DBC decoding raises" do
+      message = { id: 0x123, data: [], extended: false }
+      allow(mock_adapter).to receive(:receive_message).and_return(message)
+      allow(dbc).to receive(:decode_can).and_raise(ArgumentError, "bad decode")
+      expect(silent_logger).to receive(:error).with(/Error decoding DBC message 0x123: bad decode/)
+
+      received = nil
+      messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }
+
+      expect(received).to include(id: 0x123, data: [], extended: false)
+      expect(received[:decode_error]).to eq(class: "ArgumentError", message: "bad decode")
+      expect(received).not_to have_key(:decoded)
     end
 
     it "reconstructs the extended DBC ID before decoding" do

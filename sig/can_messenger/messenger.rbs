@@ -38,7 +38,7 @@ module CanMessenger
         ?filter: (Integer | Range[Integer] | Array[Integer])?,
         ?can_fd: bool?,
         ?dbc: CanMessenger::DBC?
-      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped }) -> void } -> void
+      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped, ?decode_error: { class: String, message: String } }) -> void } -> void
 
     # Stops the listening loop
     def stop_listening: () -> void
@@ -54,7 +54,7 @@ module CanMessenger
       (Integer | Range[Integer] | Array[Integer])? filter,
       bool can_fd,
       CanMessenger::DBC? dbc
-    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped }) -> void } -> void
+    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped, ?decode_error: { class: String, message: String } }) -> void } -> void
 
     # Checks whether the given message ID matches the specified filter
     def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool

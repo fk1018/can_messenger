@@ -18,6 +18,23 @@ module CanMessenger
   #   decoded = dbc.decode_can(0x123, [0x09, 0xC4, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00])
   #   # => { name: 'EngineData', signals: { RPM: 2500.0, Temperature: 85.5 } }
   class DBC
+    IGNORED_LINE_PREFIXES = %w[
+      BO_TX_BU_
+      VERSION
+      NS_
+      BS_
+      BU_
+      CM_
+      VAL_
+      BA_
+      BA_DEF_
+      BA_DEF_DEF_
+      SIG_VALTYPE_
+    ].freeze
+
+    MESSAGE_LINE_PATTERN = /^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)\s+\S.*$/
+    SIGNAL_LINE_PATTERN = /^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^)]+)\)/
+
     attr_reader :messages
 
     # Loads a DBC file from disk and parses its contents.
@@ -46,17 +63,44 @@ module CanMessenger
     #
     # @param [String] content The DBC file content to parse
     # @return [void]
-    def parse(content) # rubocop:disable Metrics/MethodLength
+    def parse(content) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
       current = nil
-      content.each_line do |line|
-        line.strip!
-        next if line.empty? || line.start_with?("BO_TX_BU_")
+      in_namespace_section = false
 
-        if (msg = parse_message_line(line))
+      # The parser is intentionally strict so malformed DBC files fail early with line context.
+      # We still ignore a small allowlist of standard metadata directives that do not affect encode/decode.
+      content.each_line.with_index(1) do |line, line_number|
+        raw_line = line.rstrip
+        stripped_line = raw_line.strip
+
+        if in_namespace_section
+          next if raw_line.match?(/^\s+/)
+
+          in_namespace_section = false
+        end
+
+        next if stripped_line.empty?
+
+        if ignored_line?(stripped_line)
+          in_namespace_section = stripped_line.start_with?("NS_")
+          next
+        end
+
+        if stripped_line.start_with?("BO_")
+          msg = parse_message_line(stripped_line)
+          raise_parse_error("Invalid message definition", line_number, stripped_line) unless msg
+
           current = msg
           @messages[msg.name] = msg
-        elsif current && (sig = parse_signal_line(line, current))
+        elsif stripped_line.start_with?("SG_")
+          raise_parse_error("Signal definition without a current message", line_number, stripped_line) unless current
+
+          sig = parse_signal_line(stripped_line, current)
+          raise_parse_error("Invalid signal definition", line_number, stripped_line) unless sig
+
           current.signals << sig
+        else
+          raise_parse_error("Unsupported or malformed DBC line", line_number, stripped_line)
         end
       end
     end
@@ -68,7 +112,7 @@ module CanMessenger
     # @param [String] line A single line from the DBC file
     # @return [Message, nil] A Message object if the line matches, nil otherwise
     def parse_message_line(line)
-      return unless (m = line.match(/^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)/))
+      return unless (m = line.match(MESSAGE_LINE_PATTERN))
 
       id = m[1].to_i
       name = m[2]
@@ -85,7 +129,7 @@ module CanMessenger
     # @param [Message] _current The current message being processed (unused but kept for API consistency)
     # @return [Signal, nil] A Signal object if the line matches, nil otherwise
     def parse_signal_line(line, _current) # rubocop:disable Metrics/MethodLength
-      return unless (m = line.match(/^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^)]+)\)/))
+      return unless (m = line.match(SIGNAL_LINE_PATTERN))
 
       sig_name = m[1]
       start_bit = m[2].to_i
@@ -143,6 +187,16 @@ module CanMessenger
       return nil unless msg
 
       { name: msg.name, signals: msg.decode(data) }
+    end
+
+    private
+
+    def ignored_line?(line)
+      line.start_with?(*IGNORED_LINE_PREFIXES)
+    end
+
+    def raise_parse_error(reason, line_number, line)
+      raise ArgumentError, "#{reason} at line #{line_number}: #{line}"
     end
   end
 
