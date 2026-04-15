@@ -15,6 +15,9 @@ services:
   lint:
     <<: *app-base
     command: sh -lc "set -e; bundle check || bundle install; bundle exec rubocop"
+  typecheck:
+    <<: *app-base
+    command: sh -lc "set -e; bundle check || bundle install; rbs validate"
   test:
     <<: *app-base
     command: sh -lc "set -e; bundle check || bundle install; bundle exec rake test:rspec"

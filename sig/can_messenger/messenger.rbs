@@ -6,12 +6,13 @@ module CanMessenger
     @listening: bool
     @endianness: Symbol
     @can_fd: bool
+    @adapter: untyped
 
     # Initializes a new Messenger instance
     def initialize: (
         interface_name: String,
         ?logger: Logger?,
-        ?endianness: Symbol,
+        ?endianness: (String | Symbol),
         ?can_fd: bool,
         ?adapter: untyped
       ) -> void
@@ -27,7 +28,7 @@ module CanMessenger
     # Encodes and sends a CAN message using a DBC definition
     def send_dbc_message: (
         message_name: String,
-        signals: Hash[untyped, untyped],
+        signals: Hash[Symbol | String, Numeric],
         ?dbc: CanMessenger::DBC?,
         ?extended_id: bool,
         ?can_fd: bool?
@@ -35,10 +36,10 @@ module CanMessenger
 
     # Continuously listens for CAN messages on the specified interface
     def start_listening: (
-        ?filter: (Integer | Range[Integer] | Array[Integer])?,
+        ?filter: (Integer | Range[untyped] | Array[untyped])?,
         ?can_fd: bool?,
         ?dbc: CanMessenger::DBC?
-      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped, ?decode_error: { class: String, message: String } }) -> void } -> void
+      ) { ({ id: Integer, data: Array[Integer], ?extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
 
     # Stops the listening loop
     def stop_listening: () -> void
@@ -46,17 +47,32 @@ module CanMessenger
     private
 
     # Opens a socket, yields it, and closes it when done
-    def with_socket: (?can_fd: bool) { (untyped) -> void } -> void
+    def with_socket: (?can_fd: bool?) { (untyped socket) -> untyped } -> void
 
     # Processes a single CAN message from socket
     def process_message: (
       untyped socket,
-      (Integer | Range[Integer] | Array[Integer])? filter,
+      (Integer | Range[untyped] | Array[untyped])? filter,
       bool can_fd,
       CanMessenger::DBC? dbc
-    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: untyped, ?decode_error: { class: String, message: String } }) -> void } -> void
+    ) { ({ id: Integer, data: Array[Integer], ?extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
 
     # Checks whether the given message ID matches the specified filter
-    def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool
+    def matches_filter?: (message_id: Integer, filter: (Integer | Range[untyped] | Array[untyped])?) -> bool
+
+    def validate_filter!: ((Integer | Range[untyped] | Array[untyped])?) -> void
+    def validate_range_filter!: (Range[untyped] filter) -> void
+    def validate_array_filter!: (Array[untyped] filter) -> void
+    def attach_dbc_payload!: (
+      { id: Integer, data: Array[Integer], ?extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } } message,
+      CanMessenger::DBC dbc
+    ) -> void
+    def normalize_can_id: (Integer id) -> Integer
+    def dbc_extended_id?: (Integer id) -> bool
+    def normalized_dbc_message: (
+      { id: Integer, data: Array[Integer] } encoded,
+      extended_id: bool
+    ) -> { id: Integer, data: Array[Integer], extended_id: bool }
+    def dbc_decode_id: ({ id: Integer, ?extended: bool } message) -> Integer
   end
 end

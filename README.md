@@ -236,6 +236,12 @@ Run RuboCop:
 docker compose run --rm lint
 ```
 
+Run signature validation:
+
+```bash
+docker compose run --rm typecheck
+```
+
 Run the test suite:
 
 ```bash
@@ -272,7 +278,9 @@ If you already have Ruby installed locally, you can still use:
 
 ```bash
 bin/setup
+rbs validate
 bundle exec rake test:rspec
+bundle exec rubocop
 ```
 
 ## Contributing

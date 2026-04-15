@@ -23,16 +23,20 @@ const config: Config = {
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
           includeCurrentVersion: true,
-          lastVersion: '2.3.0',
+          lastVersion: '2.3.1',
           versions: {
             current: {
               label: 'next',
               path: 'next',
               banner: 'unreleased'
             },
+            '2.3.1': {
+              label: '2.3.1',
+              path: ''
+            },
             '2.3.0': {
               label: '2.3.0',
-              path: ''
+              path: '2.3.0'
             },
             '2.2.0': {
               label: '2.2.0',

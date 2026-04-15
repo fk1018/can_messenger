@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+## [2.3.1] - 2026-04-15
+
+### Changed
+
+- Add a dedicated `docker compose run --rm typecheck` development command and document `rbs validate` in local Ruby workflows.
+- Validate RBS signatures in CI and promote the docs site stable snapshot to `2.3.1`.
+
+### Fixed
+
+- Bring the RBS surface back in sync with the runtime API by adding adapter/constants signatures and realigning `Messenger` and `DBC` declarations.
+
 ## [2.3.0] - 2026-04-14
 
 ### Changed
@@ -189,7 +200,8 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
-  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.3.0...HEAD
+  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.3.1...HEAD
+  [2.3.1]: https://github.com/fk1018/can_messenger/compare/v2.3.0...v2.3.1
   [2.3.0]: https://github.com/fk1018/can_messenger/compare/v2.2.0...v2.3.0
   [2.2.0]: https://github.com/fk1018/can_messenger/compare/v2.1.0...v2.2.0
   [2.1.0]: https://github.com/fk1018/can_messenger/compare/v2.0.0...v2.1.0

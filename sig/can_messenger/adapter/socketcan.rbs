@@ -1,0 +1,47 @@
+module CanMessenger
+  module Adapter
+    class Socketcan < Base
+      CAN_RAW: Integer
+      SOL_CAN_BASE: Integer
+      SOL_CAN_RAW: Integer
+      CAN_RAW_FD_FRAMES: Integer
+      FRAME_SIZE: Integer
+      CANFD_FRAME_SIZE: Integer
+      MIN_FRAME_SIZE: Integer
+      MAX_FD_DATA: Integer
+      MAX_STANDARD_ID: Integer
+      SOCKADDR_CAN_ADDR_SIZE: Integer
+      SOCKADDR_CAN_SIZE: Integer
+      SOCKADDR_CAN_PADDING: Integer
+      TIMEOUT: String
+      ZERO_CAN_ADDR: String
+
+      def open_socket: (?can_fd: bool?) -> untyped
+      def build_can_frame: (
+        id: Integer,
+        data: Array[Integer],
+        ?extended_id: bool,
+        ?can_fd: bool?
+      ) -> String
+      def receive_message: (
+        socket: untyped,
+        ?can_fd: bool?
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      def parse_frame: (
+        frame: String,
+        ?can_fd: bool?
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+
+      private
+
+      def unpack_frame_id: (frame: String) -> Integer
+      def configure_socket: (untyped socket, can_fd: bool?) -> void
+      def close_socket: (untyped socket) -> void
+      def interface_index: () -> Integer
+      def interface_index_from_ifaddrs: () -> Integer?
+      def interface_index_from_sysfs: () -> Integer?
+      def build_sockaddr_can: (Integer ifindex) -> String
+      def validate_can_id!: (untyped id, extended_id: bool) -> void
+    end
+  end
+end

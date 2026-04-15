@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
+      - name: Run RBS validation
+        run: rbs validate
+
       - name: Run Rubocop
         run: bundle exec rubocop
 

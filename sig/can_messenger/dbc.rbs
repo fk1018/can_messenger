@@ -1,6 +1,10 @@
 module CanMessenger
   # DBC (Database CAN) Parser and Encoder/Decoder
   class DBC
+    IGNORED_LINE_PREFIXES: Array[String]
+    MESSAGE_LINE_PATTERN: Regexp
+    SIGNAL_LINE_PATTERN: Regexp
+
     @messages: Hash[String, Message]
 
     attr_reader messages: Hash[String, Message]
@@ -14,19 +18,22 @@ module CanMessenger
     # Parses DBC content and populates the messages hash
     def parse: (String content) -> void
 
-    # Encodes signal values into a CAN message frame
-    def encode_can: (String name, Hash[Symbol | String, Numeric] values) -> { id: Integer, data: Array[Integer] }
-
-    # Decodes a CAN message frame into signal values
-    def decode_can: (Integer id, Array[Integer] data) -> ({ name: String, signals: Hash[Symbol, Float] } | nil)
-
-    private
-
     # Parses a message definition line from DBC content
     def parse_message_line: (String line) -> (Message | nil)
 
     # Parses a signal definition line from DBC content
     def parse_signal_line: (String line, Message? _current) -> (Signal | nil)
+
+    # Encodes signal values into a CAN message frame
+    def encode_can: (String name, Hash[Symbol | String, Numeric] values) -> { id: Integer, data: Array[Integer] }
+
+    # Decodes a CAN message frame into signal values
+    def decode_can: (Integer id, Array[Integer] data) -> ({ name: String, signals: Hash[Symbol, Numeric] } | nil)
+
+    private
+
+    def ignored_line?: (String line) -> bool
+    def raise_parse_error: (String reason, Integer line_number, String line) -> void
   end
 
   # Represents a CAN message definition from a DBC file
@@ -48,7 +55,7 @@ module CanMessenger
     def encode: (Hash[Symbol | String, Numeric] values) -> Array[Integer]
 
     # Decodes message data bytes into individual signal values
-    def decode: (Array[Integer] data) -> Hash[Symbol, Float]
+    def decode: (Array[Integer] data) -> Hash[Symbol, Numeric]
   end
 
   # Represents a signal within a CAN message
@@ -58,16 +65,16 @@ module CanMessenger
     @length: Integer
     @endianness: Symbol
     @sign: Symbol
-    @factor: Float
-    @offset: Float
+    @factor: Numeric
+    @offset: Numeric
 
     attr_reader name: String
     attr_reader start_bit: Integer
     attr_reader length: Integer
     attr_reader endianness: Symbol
     attr_reader sign: Symbol
-    attr_reader factor: Float
-    attr_reader offset: Float
+    attr_reader factor: Numeric
+    attr_reader offset: Numeric
 
     # Initializes a new Signal instance
     def initialize: (
@@ -76,15 +83,15 @@ module CanMessenger
       length: Integer,
       endianness: Symbol,
       sign: Symbol,
-      factor: Float,
-      offset: Float
+      factor: Numeric,
+      offset: Numeric
     ) -> void
 
     # Encodes a value into the message byte array at this signal's bit position
     def encode: (Array[Integer] bytes, Numeric value) -> void
 
     # Decodes this signal's value from the message byte array
-    def decode: (Array[Integer] bytes) -> Float
+    def decode: (Array[Integer] bytes) -> Numeric
 
     private
 
@@ -113,7 +120,7 @@ module CanMessenger
     def calculate_bit_position: (Integer bit_offset) -> Integer
 
     # Calculates byte and bit indices from an absolute bit position
-    def calculate_byte_and_bit_indices: (Integer bit_pos) -> Array[Integer]
+    def calculate_byte_and_bit_indices: (Integer bit_pos) -> [Integer, Integer]
 
     # Validates that a bit position is within the message boundaries
     def validate_bit_position: (Integer bit_pos, Integer bytes_size) -> void
