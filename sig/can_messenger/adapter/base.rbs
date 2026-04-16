@@ -1,0 +1,42 @@
+module CanMessenger
+  module Adapter
+    class Base
+      @interface_name: String
+      @logger: Logger
+      @endianness: Symbol
+
+      attr_reader interface_name: String
+      attr_reader logger: Logger
+      attr_reader endianness: Symbol
+
+      def self.native_endianness: () -> Symbol
+
+      def initialize: (
+        interface_name: String,
+        logger: Logger,
+        ?endianness: (String | Symbol)
+      ) -> void
+
+      def open_socket: (?can_fd: bool?) -> untyped
+      def build_can_frame: (
+        id: Integer,
+        data: Array[Integer],
+        ?extended_id: bool,
+        ?can_fd: bool?
+      ) -> String
+      def receive_message: (
+        socket: untyped,
+        ?can_fd: bool?
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      def parse_frame: (
+        frame: String,
+        ?can_fd: bool?
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+
+      private
+
+      def self.pack_uint: (Integer value, String template) -> String
+      def normalize_endianness: ((String | Symbol) endianness) -> Symbol
+    end
+  end
+end

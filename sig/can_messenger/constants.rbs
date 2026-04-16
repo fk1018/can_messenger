@@ -1,0 +1,7 @@
+module CanMessenger
+  module Constants
+    CAN_ID_MASK: Integer
+    EXTENDED_ID_FLAG: Integer
+    MAX_EXTENDED_ID: Integer
+  end
+end
