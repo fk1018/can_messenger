@@ -24,9 +24,9 @@ Current parser support is intentionally narrow and focused:
 
 - `BO_` message definitions.
 - `SG_` signal definitions in the common `start|length@endian+/- (factor,offset)` pattern.
-- Ignores standard metadata directives such as `VERSION`, `NS_`, `BU_`, `CM_`, `VAL_`, `BA_*`, `SIG_VALTYPE_`, and `BO_TX_BU_`.
+- Ignores standard metadata directives such as `VERSION`, `NS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, `SIG_VALTYPE_`, and `BO_TX_BU_`.
 
-Malformed `BO_`/`SG_` lines and unknown non-empty directives now raise `ArgumentError` with line context.
+Malformed `BO_`/`SG_` lines and unknown non-empty directives, including unsupported `BA_*` variants, now raise `ArgumentError` with line context.
 If your DBC uses advanced constructs (for example multiplexing or uncommon syntax variants), validate with tests before relying on runtime behavior.
 
 ## Encode by Message Name

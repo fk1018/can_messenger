@@ -66,7 +66,7 @@ messenger.start_listening(filter: 0x123) { |msg| p msg }
 # Range
 messenger.start_listening(filter: 0x100..0x1FF) { |msg| p msg }
 
-# Explicit set
+# Explicit list
 messenger.start_listening(filter: [0x120, 0x121, 0x220]) { |msg| p msg }
 ```
 

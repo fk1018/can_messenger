@@ -138,7 +138,7 @@ end
 If the DBC message definition uses an extended CAN ID, `send_dbc_message` automatically sends it as an extended frame and `start_listening(dbc: ...)` decodes received extended frames back through the same DBC definition.
 If DBC decoding raises because the payload does not match the signal definition, the raw frame is still yielded and includes `decode_error: { class:, message: }`.
 
-Malformed DBC files now fail fast with `ArgumentError` that includes the line number and offending line text. Standard metadata directives such as `VERSION`, `NS_`, `BU_`, `CM_`, `VAL_`, and `BA_*` are still ignored.
+Malformed DBC files now fail fast with `ArgumentError` that includes the line number and offending line text. Standard metadata directives such as `VERSION`, `NS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, `SIG_VALTYPE_`, and `BO_TX_BU_` are still ignored. Other non-empty directives, including unsupported `BA_*` variants, raise with line context.
 
 ### Stopping the Listener
 
