@@ -7,7 +7,7 @@ slug: /
 
 `can_messenger` is a Ruby gem for reading and writing CAN frames on Linux SocketCAN interfaces.
 
-These `next` docs track upcoming changes after the `2.3.1` stable snapshot.
+These `next` docs track upcoming changes after the `2.3.2` stable snapshot.
 
 ## Core Capabilities
 

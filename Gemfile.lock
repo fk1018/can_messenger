@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    can_messenger (2.3.1)
+    can_messenger (2.3.2)
       logger (~> 1.6)
 
 GEM
@@ -75,7 +75,7 @@ DEPENDENCIES
 
 CHECKSUMS
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
-  can_messenger (2.3.1)
+  can_messenger (2.3.2)
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
   docile (1.4.1) sha256=96159be799bfa73cdb721b840e9802126e4e03dfc26863db73647204c727f21e
   json (2.21.2) sha256=1f1d3b7cf2b3ba1a69beca0bb6db13d5438b80bff3cd54cdaaa620b9b07c1c6a
