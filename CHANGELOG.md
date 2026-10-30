@@ -1,5 +1,22 @@
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Require Ruby 4.0.9 or higher and update the Ruby development and CI images.
+- Update the docs toolchain to Node.js 24.22.1 and Docusaurus 3.10.2, refresh locked dependencies, and override vulnerable transitive dependencies with patched versions.
+- Update the locked Ruby JSON dependency to address published security advisories.
+- DBC signals with integral scaling now decode to `Integer` values to preserve precision; fractional scaling continues to return `Float` values.
+
+### Fixed
+
+- Let the SocketCAN listener stop on an idle bus by bounding receive waits.
+- Preserve remote transmission requests as distinct frames and skip DBC decoding for them.
+- Reject CAN payload elements outside the integer byte range instead of silently wrapping them.
+- Preserve large integer DBC values and round correctly when directly constructed signals use integer scaling factors.
+- Reject malformed DBC scaling, invalid byte order, unsupported metadata directives, and unsupported floating-point signal types with line context.
+- Declare Logger as a runtime dependency so minimal Bundler applications can load the gem.
+- Ship the RBS signatures in the gem and load them explicitly during signature validation.
+
 ## [2.3.1] - 2026-04-15
 
 ### Changed

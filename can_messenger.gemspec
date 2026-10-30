@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description   = "CanMessenger provides an interface to send and receive messages over the CAN bus, useful for applications requiring CAN communication in Ruby." # rubocop:disable Layout/LineLength
   spec.homepage      = "https://can-messenger.github.io/"
   spec.license       = "MIT"
-  spec.required_ruby_version = ">= 4.0.1"
+  spec.required_ruby_version = ">= 4.0.9"
 
   # Metadata for RubyGems
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
@@ -21,15 +21,11 @@ Gem::Specification.new do |spec|
   spec.metadata["changelog_uri"] = "https://github.com/fk1018/can_messenger/blob/main/CHANGELOG.md"
 
   # Files to include in the gem package
-  spec.files = Dir["lib/**/*", "README.md", "LICENSE.txt", "CHANGELOG.md"]
+  spec.files = Dir["lib/**/*", "sig/**/*.rbs", "README.md", "LICENSE.txt", "CHANGELOG.md"]
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  # Uncomment to register a dependency if needed
-  # spec.add_dependency "example-gem", "~> 1.0"
-
-  # Development dependencies (optional)
-  # spec.add_development_dependency "rspec"       # For testing
+  spec.add_dependency "logger", "~> 1.6"
   spec.metadata["rubygems_mfa_required"] = "true"
 end

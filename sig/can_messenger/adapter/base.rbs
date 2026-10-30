@@ -27,11 +27,11 @@ module CanMessenger
       def receive_message: (
         socket: untyped,
         ?can_fd: bool?
-      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer } | nil)
       def parse_frame: (
         frame: String,
         ?can_fd: bool?
-      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer } | nil)
 
       private
 

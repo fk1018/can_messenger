@@ -7,7 +7,7 @@ sidebar_position: 2
 ## Requirements
 
 - Linux with SocketCAN support.
-- Ruby `>= 4.0.1`.
+- Ruby `>= 4.0.9`.
 - Permission to open raw sockets (root, `CAP_NET_RAW`, or equivalent setup).
 
 ## Install the Gem

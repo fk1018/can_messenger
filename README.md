@@ -12,7 +12,7 @@
 
 ## Requirements
 
-- Ruby 4.0.1 or higher.
+- Ruby 4.0.9 or higher.
 - Docker (optional, for containerized development without installing Ruby locally).
 
 ## Installation
@@ -57,6 +57,8 @@ To send a message:
 messenger.send_can_message(id: 0x123, data: [0xDE, 0xAD, 0xBE, 0xEF])
 ```
 
+Each payload element must be an integer in `0..255`; invalid bytes raise `ArgumentError`.
+
 > **Note:** Under the hood, the gem now writes CAN frames to a raw socket instead of calling `cansend`. No external dependencies are required beyond raw-socket permissions.
 > The SocketCAN adapter builds the Linux socket address itself, so it does not depend on Ruby exposing `CAN_RAW` or `pack_sockaddr_can`.
 
@@ -84,6 +86,8 @@ messenger.start_listening do |msg|
   puts "Received ID=0x#{msg[:id].to_s(16)}, Extended=#{msg[:extended]}, Data=#{msg[:data]}"
 end
 ```
+
+Remote transmission request (RTR) frames include `remote: true`, the requested byte count in `dlc`, and an empty `data` array. They are yielded without DBC decoding because they contain no signal data.
 
 #### Listening with Filters
 
@@ -138,7 +142,9 @@ end
 If the DBC message definition uses an extended CAN ID, `send_dbc_message` automatically sends it as an extended frame and `start_listening(dbc: ...)` decodes received extended frames back through the same DBC definition.
 If DBC decoding raises because the payload does not match the signal definition, the raw frame is still yielded and includes `decode_error: { class:, message: }`.
 
-Malformed DBC files now fail fast with `ArgumentError` that includes the line number and offending line text. Standard metadata directives such as `VERSION`, `NS_`, `BS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, `SIG_VALTYPE_`, and `BO_TX_BU_` are still ignored. Other non-empty directives, including unsupported `BA_*` variants, raise with line context.
+Malformed DBC files fail fast with `ArgumentError` that includes the line number and offending line text. Signal byte order must be `@0` or `@1`, and scaling values must be valid numeric literals. Standard metadata directives such as `VERSION`, `NS_`, `BS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, and `BO_TX_BU_` are ignored. `SIG_VALTYPE_` accepts integer type `0`; floating-point types `1` and `2` are unsupported and raise explicitly. Other non-empty directives, including unsupported `BA_*` variants, raise with line context.
+
+Identity-scaled integer signals preserve all 64 bits during encoding and decoding. Integral scaling returns `Integer` values; fractional scaling returns `Float` values. Directly constructed signals also round correctly with integer scaling factors.
 
 ### Stopping the Listener
 
@@ -147,6 +153,8 @@ To stop listening, use:
 ```ruby
 messenger.stop_listening
 ```
+
+The default SocketCAN adapter checks for shutdown at least once per second while the bus is idle. When listening in another thread, join that thread after stopping to wait for socket cleanup.
 
 ### Adapters
 
@@ -199,7 +207,7 @@ Before using `can_messenger`, please note the following:
     ```
 
 - **Threading & Socket Management:**
-  - **Blocking Behavior:** The gem uses blocking socket calls and continuously listens for messages. Manage the listener’s lifecycle appropriately, especially in multi-threaded environments. Always call `stop_listening` to gracefully shut down the listener.
+  - **Blocking Behavior:** `start_listening` runs until stopped. The default SocketCAN adapter bounds each receive wait to one second so shutdown also works on an idle bus. Always call `stop_listening` to gracefully shut down the listener; custom adapters should also bound their receive waits.
   - **Resource Cleanup:** The socket is automatically closed when the listening loop terminates. Stop the listener to avoid resource leaks.
 
 - **Logging:**
@@ -278,7 +286,7 @@ If you already have Ruby installed locally, you can still use:
 
 ```bash
 bin/setup
-rbs validate
+rbs -I sig -r logger validate
 bundle exec rake test:rspec
 bundle exec rubocop
 ```

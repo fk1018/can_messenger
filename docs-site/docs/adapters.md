@@ -13,6 +13,9 @@ By default, `Messenger` uses `CanMessenger::Adapter::Socketcan`, which:
 - Opens Linux raw CAN sockets.
 - Builds/parses classic CAN and CAN FD frame layouts.
 - Detects and exposes `extended` frame flag.
+- Returns remote transmission requests with `remote: true`, their requested length in `dlc`, and empty `data`.
+- Validates outgoing data as an array of integer bytes from `0` through `255`.
+- Waits up to one second for readable data, then receives without blocking so an idle listener can stop.
 - Resolves interface indexes and packs `sockaddr_can` internally, without relying on Ruby exposing SocketCAN helper methods.
 
 ## Adapter Contract

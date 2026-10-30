@@ -35,6 +35,7 @@ send_can_message(id:, data:, extended_id: false, can_fd: nil)
 Behavior:
 
 - Raises `ArgumentError` when required inputs are missing or invalid.
+- With the SocketCAN adapter, `data` must be an array of integers from `0` through `255`; invalid bytes are rejected before packing.
 - Uses messenger-level `can_fd` when `can_fd:` is omitted.
 - For non-argument runtime errors, logs and returns without raising.
 
@@ -73,6 +74,8 @@ Behavior:
   id: Integer,
   data: Array<Integer>,
   extended: true | false,
+  remote: true, # only for remote transmission requests
+  dlc: Integer, # requested payload length, only for remote transmission requests
   decoded: { name: String, signals: Hash }, # only when dbc decode succeeds
   decode_error: { class: String, message: String } # only when dbc decode raises
 }
@@ -80,6 +83,7 @@ Behavior:
 
 When `dbc:` is provided, extended received frames are mapped back to the DBC message ID form before decode.
 If DBC decoding fails, the raw frame is still yielded with `decode_error` attached.
+Remote transmission requests carry no signal payload: they are yielded with empty `data`, `remote: true`, and their requested length in `dlc`, without DBC decoding.
 
 ## `stop_listening`
 
@@ -88,3 +92,5 @@ stop_listening
 ```
 
 Sets the internal listening flag to false so the loop exits cleanly.
+The SocketCAN adapter checks for incoming data at most one second at a time, allowing an idle listener to exit and close its socket within that interval.
+Frames received after the listener has been stopped are not yielded. Custom adapters must return from `receive_message` periodically to support stopping an idle listener.

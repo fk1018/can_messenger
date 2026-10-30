@@ -163,6 +163,31 @@ RSpec.describe CanMessenger::Messenger do
       messenger.stop_listening
       expect(messenger.instance_variable_get(:@listening)).to be false
     end
+
+    it "stops an idle SocketCAN listener and closes its socket without incoming frames" do
+      receiver, sender = Socket.pair(:UNIX, :DGRAM, 0)
+      adapter = CanMessenger::Adapter::Socketcan.new(interface_name: interface, logger: silent_logger)
+      allow(adapter).to receive(:open_socket).and_return(receiver)
+      listening = Queue.new
+      allow(adapter).to receive(:receive_message).and_wrap_original do |original, **options|
+        listening << true
+        original.call(**options)
+      end
+      listener = described_class.new(interface_name: interface, logger: silent_logger, adapter: adapter)
+      received = []
+      worker = Thread.new { listener.start_listening { |message| received << message } }
+      expect(listening.pop(timeout: 2)).to be true
+
+      listener.stop_listening
+
+      expect(worker.join(2)).to equal(worker)
+      expect(receiver).to be_closed
+      expect(received).to be_empty
+    ensure
+      worker&.kill&.join
+      receiver&.close unless receiver&.closed?
+      sender&.close
+    end
   end
 
   describe "#matches_filter?" do
@@ -210,6 +235,31 @@ RSpec.describe CanMessenger::Messenger do
 
   describe "#process_message" do
     let(:dbc) { instance_double(CanMessenger::DBC) }
+
+    it "does not yield a frame received after listening was stopped" do
+      allow(mock_adapter).to receive(:receive_message) do
+        messenger.stop_listening
+        { id: 0x123, data: [0x01], extended: false }
+      end
+      received = []
+
+      messenger.send(:process_message, mock_socket, nil, false, nil) { |msg| received << msg }
+
+      expect(received).to be_empty
+    end
+
+    it "yields remote requests without decoding them as signal data" do
+      adapter = CanMessenger::Adapter::Socketcan.new(interface_name: interface, logger: silent_logger)
+      frame = [0x40000123].pack(adapter.endianness == :big ? "L>" : "V") + [1, 0, 0, 0].pack("C*") + ("\x00" * 8)
+      message = adapter.parse_frame(frame: frame)
+      allow(mock_adapter).to receive(:receive_message).and_return(message)
+      expect(dbc).not_to receive(:decode_can)
+      received = nil
+
+      messenger.send(:process_message, mock_socket, nil, false, dbc) { |msg| received = msg }
+
+      expect(received).to eq(id: 0x123, data: [], extended: false, remote: true, dlc: 1)
+    end
 
     it "adds decoded data when dbc is provided" do
       message = { id: 0x123, data: [0x01] }

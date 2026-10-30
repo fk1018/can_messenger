@@ -26,14 +26,15 @@ module CanMessenger
       def receive_message: (
         socket: untyped,
         ?can_fd: bool?
-      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer } | nil)
       def parse_frame: (
         frame: String,
         ?can_fd: bool?
-      ) -> ({ id: Integer, data: Array[Integer], extended: bool } | nil)
+      ) -> ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer } | nil)
 
       private
 
+      def frame_data_length: (String frame, can_fd: bool?) -> Integer
       def unpack_frame_id: (frame: String) -> Integer
       def configure_socket: (untyped socket, can_fd: bool?) -> void
       def close_socket: (untyped socket) -> void
@@ -42,6 +43,7 @@ module CanMessenger
       def interface_index_from_sysfs: () -> Integer?
       def build_sockaddr_can: (Integer ifindex) -> String
       def validate_can_id!: (untyped id, extended_id: bool) -> void
+      def validate_data!: (untyped data) -> void
     end
   end
 end
