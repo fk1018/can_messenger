@@ -1,11 +1,14 @@
 ## [Unreleased]
 
+## [2.3.2] - 2026-10-30
+
 ### Changed
 
 - **Breaking:** Require Ruby 4.0.9 or higher and update the Ruby development and CI images.
 - Update the docs toolchain to Node.js 24.22.1 and Docusaurus 3.10.2, refresh locked dependencies, and override vulnerable transitive dependencies with patched versions.
 - Update the locked Ruby JSON dependency to address published security advisories.
 - DBC signals with integral scaling now decode to `Integer` values to preserve precision; fractional scaling continues to return `Float` values.
+- Promote the docs site stable snapshot to `2.3.2`.
 
 ### Fixed
 
@@ -217,7 +220,8 @@
 ## [0.1.0] - 2024-11-10
 
 - Initial release
-  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.3.1...HEAD
+  [Unreleased]: https://github.com/fk1018/can_messenger/compare/v2.3.2...HEAD
+  [2.3.2]: https://github.com/fk1018/can_messenger/compare/v2.3.1...v2.3.2
   [2.3.1]: https://github.com/fk1018/can_messenger/compare/v2.3.0...v2.3.1
   [2.3.0]: https://github.com/fk1018/can_messenger/compare/v2.2.0...v2.3.0
   [2.2.0]: https://github.com/fk1018/can_messenger/compare/v2.1.0...v2.2.0

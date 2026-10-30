@@ -1,0 +1,74 @@
+---
+sidebar_position: 7
+---
+
+# Development Notes (2.3.2)
+
+This page captures the `2.3.2` release snapshot.
+
+## Docker-first Workflow
+
+From repository root:
+
+```bash
+docker compose run --rm docs npm ci
+docker compose build app
+docker compose run --rm lint
+docker compose run --rm typecheck
+docker compose run --rm test
+docker compose run --rm build
+```
+
+Ruby services automatically run `bundle check || bundle install` inside the container, so an existing `bundle_cache` volume stays valid after gem changes.
+
+### Docs Site
+
+```bash
+# Run docs dev server
+docker compose up docs
+
+# Build static docs bundle
+docker compose run --rm docs sh -lc "npm ci && npm run build"
+```
+
+Docs dev server is exposed at `http://localhost:3000`.
+
+### Docs Dependency Maintenance
+
+Use Node.js `24.22.1`, matching the docs container and deployment workflow. After updating dependencies, run:
+
+```bash
+cd docs-site
+npm ci
+npm audit --audit-level=moderate
+npm run build
+```
+
+The `tinypool`, `serialize-javascript`, and `sockjs`/`uuid` overrides select patched versions until upstream dependencies adopt those major versions. Review and remove each override when the upstream dependency range includes the fix.
+
+The audit still reports the low-severity `deepmerge` advisory [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) through the build-time SVGR dependency chain. There is no upstream fixed release; review the advisory when refreshing the lockfile.
+
+## Local Ruby Workflow (optional)
+
+```bash
+bin/setup
+rbs -I sig -r logger validate
+bundle exec rake test:rspec
+bundle exec rubocop
+```
+
+## CI / Release Workflow Notes
+
+- Ruby checks (`typecheck` + `test` + `rubocop`) run from the Ruby workflow.
+- Gem release workflow is manual (`workflow_dispatch`).
+- Docs deploy workflow is manual (`workflow_dispatch`).
+
+## Docs Versioning Model
+
+- `docs-site/docs/*` = `next` (unreleased stream).
+- `docs-site/versioned_docs/version-2.3.2/*` = stable snapshot for `2.3.2`.
+- `docs-site/versioned_docs/version-2.3.1/*` = archived snapshot for `2.3.1`.
+- `docs-site/versioned_docs/version-2.3.0/*` = archived snapshot for `2.3.0`.
+- `docs-site/versioned_docs/version-2.2.0/*` = archived snapshot for `2.2.0`.
+- `docs-site/versioned_docs/version-2.1.0/*` = archived snapshot for `2.1.0`.
+- `docs-site/versions.json` controls available released versions.

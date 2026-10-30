@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Development (next)
 
-These docs describe active development workflow after the `2.3.1` snapshot.
+These docs describe active development workflow after the `2.3.2` snapshot.
 
 ## Docker-first Workflow
 
@@ -66,7 +66,8 @@ bundle exec rubocop
 ## Docs Versioning Model
 
 - `docs-site/docs/*` = `next` (unreleased stream).
-- `docs-site/versioned_docs/version-2.3.1/*` = stable snapshot for `2.3.1`.
+- `docs-site/versioned_docs/version-2.3.2/*` = stable snapshot for `2.3.2`.
+- `docs-site/versioned_docs/version-2.3.1/*` = archived snapshot for `2.3.1`.
 - `docs-site/versioned_docs/version-2.3.0/*` = archived snapshot for `2.3.0`.
 - `docs-site/versioned_docs/version-2.2.0/*` = archived snapshot for `2.2.0`.
 - `docs-site/versioned_docs/version-2.1.0/*` = archived snapshot for `2.1.0`.
