@@ -24,9 +24,11 @@ Current parser support is intentionally narrow and focused:
 
 - `BO_` message definitions.
 - `SG_` signal definitions in the common `start|length@endian+/- (factor,offset)` pattern.
-- Ignores standard metadata directives such as `VERSION`, `NS_`, `BS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, `SIG_VALTYPE_`, and `BO_TX_BU_`.
+- Ignores standard metadata directives such as `VERSION`, `NS_`, `BS_`, `BU_`, `CM_`, `VAL_`, `BA_`, `BA_DEF_`, `BA_DEF_DEF_`, and `BO_TX_BU_`.
+- Accepts `SIG_VALTYPE_` declarations for integer type `0`. Types `1` (IEEE float) and `2` (IEEE double) are unsupported and raise `ArgumentError` instead of being interpreted as integer signals.
 
 Malformed `BO_`/`SG_` lines and unknown non-empty directives, including unsupported `BA_*` variants, now raise `ArgumentError` with line context.
+Signal byte order must be `@0` or `@1`; scaling factors and offsets must be valid numbers, and the factor must be nonzero. Signed decimals and scientific notation are supported.
 If your DBC uses advanced constructs (for example multiplexing or uncommon syntax variants), validate with tests before relying on runtime behavior.
 
 ## Encode by Message Name
@@ -50,6 +52,8 @@ decoded = dbc.decode_can(frame[:id], frame[:data])
 ```
 
 Returns `nil` if no message with matching CAN ID is found.
+
+Integral factors and offsets preserve integer precision, including signed and unsigned 64-bit signals. This also applies to equivalent decimal or scientific notation such as `(1.0,0e0)`. Decoded values with integral scaling are integers; fractional scaling produces floating-point values. Encoding rounds to the nearest raw integer, with halfway values rounded away from zero.
 
 ## Big-endian and Little-endian Signals
 

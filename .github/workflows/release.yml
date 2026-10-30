@@ -32,7 +32,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 4.0.1 # Match your Ruby version
+          ruby-version: 4.0.9 # Match your Ruby version
 
       # Step 5: Install Bundler
       - name: Install Bundler

@@ -33,11 +33,26 @@ docker compose run --rm docs sh -lc "npm ci && npm run build"
 
 Docs dev server is exposed at `http://localhost:3000`.
 
+### Docs Dependency Maintenance
+
+Use Node.js `24.22.1`, matching the docs container and deployment workflow. After updating dependencies, run:
+
+```bash
+cd docs-site
+npm ci
+npm audit --audit-level=moderate
+npm run build
+```
+
+The `tinypool`, `serialize-javascript`, and `sockjs`/`uuid` overrides select patched versions until upstream dependencies adopt those major versions. Review and remove each override when the upstream dependency range includes the fix.
+
+The audit still reports the low-severity `deepmerge` advisory [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) through the build-time SVGR dependency chain. There is no upstream fixed release; review the advisory when refreshing the lockfile.
+
 ## Local Ruby Workflow (optional)
 
 ```bash
 bin/setup
-rbs validate
+rbs -I sig -r logger validate
 bundle exec rake test:rspec
 bundle exec rubocop
 ```

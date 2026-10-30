@@ -15,7 +15,7 @@
 - `docker compose run --rm docs sh -lc "npm ci && npm run build"`: build the docs site.
 
 ## Coding Style & Naming Conventions
-Target Ruby 4.0.1+. Use 2-space indentation, `# frozen_string_literal: true`, and double-quoted strings; `.rubocop.yml` enforces the string rules. Match file paths to constants, for example `lib/can_messenger/adapter/socketcan.rb` -> `CanMessenger::Adapter::Socketcan`. When public behavior changes, update docs, `sig/`, and `CHANGELOG.md` in the same patch.
+Target Ruby 4.0.9+. Use 2-space indentation, `# frozen_string_literal: true`, and double-quoted strings; `.rubocop.yml` enforces the string rules. Match file paths to constants, for example `lib/can_messenger/adapter/socketcan.rb` -> `CanMessenger::Adapter::Socketcan`. When public behavior changes, update docs, `sig/`, and `CHANGELOG.md` in the same patch.
 
 ## Testing Guidelines
 RSpec and SimpleCov are configured in `spec/test_helper.rb`; coverage output goes to `coverage/`. Name tests `*_spec.rb` and mirror the library path. Add or update specs for CAN ID validation, frame packing/parsing, DBC encode/decode behavior, adapter behavior, and logged error paths. Run `bundle exec rake` before opening a PR; for docs-only changes, at least build the docs site.

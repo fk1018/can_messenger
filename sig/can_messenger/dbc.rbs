@@ -2,8 +2,10 @@ module CanMessenger
   # DBC (Database CAN) Parser and Encoder/Decoder
   class DBC
     IGNORED_LINE_PREFIXES: Array[String]
+    NUMBER_PATTERN: Regexp
     MESSAGE_LINE_PATTERN: Regexp
     SIGNAL_LINE_PATTERN: Regexp
+    SIGNAL_VALUE_TYPE_PATTERN: Regexp
 
     @messages: Hash[String, Message]
 
@@ -33,6 +35,8 @@ module CanMessenger
     private
 
     def ignored_line?: (String line) -> bool
+    def parse_number: (String value) -> (Integer | Float | nil)
+    def validate_signal_value_type: (String line, Integer line_number) -> void
     def raise_parse_error: (String reason, Integer line_number, String line) -> void
   end
 
@@ -94,6 +98,8 @@ module CanMessenger
     def decode: (Array[Integer] bytes) -> Numeric
 
     private
+
+    def normalize_integral_number: (Numeric number) -> Numeric
 
     # Validates that the signal fits within the message boundaries
     def validate_signal_bounds: (Integer message_size_bytes) -> void

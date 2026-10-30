@@ -178,6 +178,27 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
       expect(frame.bytesize).to eq(72)
     end
 
+    [false, true].each do |can_fd|
+      [-1, 256, 511, 1.5, "1", nil].each do |byte|
+        it "rejects invalid byte #{byte.inspect} with can_fd: #{can_fd}" do
+          expect do
+            adapter.build_can_frame(id: 0x123, data: [byte], can_fd: can_fd)
+          end.to raise_error(ArgumentError, /Integers between 0 and 255/)
+        end
+      end
+    end
+
+    it "rejects data that is not an Array" do
+      expect do
+        adapter.build_can_frame(id: 0x123, data: "bytes")
+      end.to raise_error(ArgumentError, /data must be an Array/)
+    end
+
+    it "preserves the minimum and maximum byte values" do
+      frame = adapter.build_can_frame(id: 0x123, data: [0, 255])
+      expect(adapter.parse_frame(frame: frame)[:data]).to eq([0, 255])
+    end
+
     it "keeps a valid standard CAN ID unchanged" do
       frame = adapter.build_can_frame(id: 0x7FF, data: [])
       raw_id = unpack_id(frame[0..3], adapter.endianness)
@@ -188,31 +209,54 @@ RSpec.describe CanMessenger::Adapter::Socketcan do
   describe "#receive_message" do
     let(:mock_socket) { instance_double(Socket) }
 
+    before do
+      allow(mock_socket).to receive(:wait_readable).with(1).and_return(mock_socket)
+    end
+
     it "returns parsed message" do
-      allow(mock_socket).to receive(:recv).and_return(sample_frame)
+      allow(mock_socket).to receive(:recv_nonblock).and_return(sample_frame)
       msg = adapter.receive_message(socket: mock_socket)
       expect(msg).to eq(id: 0x12345678, data: [0xDE, 0xAD, 0xBE, 0xEF], extended: false)
     end
 
-    it "handles IO::WaitReadable" do
-      allow(mock_socket).to receive(:recv).and_raise(IO::WaitReadable)
+    it "handles readiness being consumed before the nonblocking receive" do
+      allow(mock_socket).to receive(:recv_nonblock).and_raise(IO::EAGAINWaitReadable)
+      expect(silent_logger).not_to receive(:error)
+      expect(adapter.receive_message(socket: mock_socket)).to be_nil
+    end
+
+    it "returns nil when no frame becomes readable within one second" do
+      allow(mock_socket).to receive(:wait_readable).with(1).and_return(nil)
+      expect(mock_socket).not_to receive(:recv_nonblock)
+
       expect(adapter.receive_message(socket: mock_socket)).to be_nil
     end
 
     it "logs StandardError" do
-      allow(mock_socket).to receive(:recv).and_raise(StandardError.new("boom"))
+      allow(mock_socket).to receive(:recv_nonblock).and_raise(StandardError.new("boom"))
       expect(silent_logger).to receive(:error).with(/Error receiving CAN message/)
       expect(adapter.receive_message(socket: mock_socket)).to be_nil
     end
 
     it "requests CANFD_FRAME_SIZE when can_fd true" do
-      allow(mock_socket).to receive(:recv).and_return(sample_frame)
+      allow(mock_socket).to receive(:recv_nonblock).and_return(sample_frame)
       adapter.receive_message(socket: mock_socket, can_fd: true)
-      expect(mock_socket).to have_received(:recv).with(described_class::CANFD_FRAME_SIZE)
+      expect(mock_socket).to have_received(:recv_nonblock).with(described_class::CANFD_FRAME_SIZE)
     end
   end
 
   describe "#parse_frame" do
+    [false, true].each do |extended|
+      it "preserves the requested length of remote frames with extended: #{extended}" do
+        raw_id = 0x40000123 | (extended ? 0x80000000 : 0)
+        frame = pack_id(raw_id, adapter.endianness) + [8, 0, 0, 0].pack("C*") + ("\x00" * 8)
+
+        expect(adapter.parse_frame(frame: frame)).to eq(
+          id: 0x123, data: [], extended: extended, remote: true, dlc: 8
+        )
+      end
+    end
+
     it "identifies extended frames" do
       eff = 0x80000000 | 0x1ABC
       frame = pack_id(eff, adapter.endianness) + [4, 0, 0, 0].pack("C*") + [0, 0, 0, 0].pack("C*")

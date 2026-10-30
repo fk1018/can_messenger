@@ -15,6 +15,6 @@ end
 
 # Development dependencies
 group :development do
-  gem "logger", "~> 1.6"
+  gem "json", "~> 2.19", ">= 2.19.9"
   gem "rubocop", "~> 1.84", require: false
 end

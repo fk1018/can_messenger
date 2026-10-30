@@ -2,7 +2,7 @@ x-app-base: &app-base
   build:
     context: .
     args:
-      RUBY_VERSION: ${RUBY_VERSION:-4.0.1}
+      RUBY_VERSION: ${RUBY_VERSION:-4.0.9}
   working_dir: /app
   volumes:
     - .:/app
@@ -17,7 +17,7 @@ services:
     command: sh -lc "set -e; bundle check || bundle install; bundle exec rubocop"
   typecheck:
     <<: *app-base
-    command: sh -lc "set -e; bundle check || bundle install; rbs validate"
+    command: sh -lc "set -e; bundle check || bundle install; rbs -I sig -r logger validate"
   test:
     <<: *app-base
     command: sh -lc "set -e; bundle check || bundle install; bundle exec rake test:rspec"
@@ -25,7 +25,7 @@ services:
     <<: *app-base
     command: sh -lc "set -e; bundle check || bundle install; bundle exec rake build"
   docs:
-    image: node:24.13.1
+    image: node:24.22.1
     working_dir: /workspace/docs-site
     volumes:
       - .:/workspace

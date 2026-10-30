@@ -39,7 +39,7 @@ module CanMessenger
         ?filter: (Integer | Range[Integer] | Array[Integer])?,
         ?can_fd: bool?,
         ?dbc: CanMessenger::DBC?
-      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
+      ) { ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
 
     # Stops the listening loop
     def stop_listening: () -> void
@@ -55,7 +55,7 @@ module CanMessenger
       (Integer | Range[Integer] | Array[Integer])? filter,
       bool can_fd,
       CanMessenger::DBC? dbc
-    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
+    ) { ({ id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } }) -> untyped } -> void
 
     # Checks whether the given message ID matches the specified filter
     def matches_filter?: (message_id: Integer, filter: (Integer | Range[Integer] | Array[Integer])?) -> bool
@@ -64,7 +64,7 @@ module CanMessenger
     def validate_range_filter!: (Range[Integer] filter) -> void
     def validate_array_filter!: (Array[Integer] filter) -> void
     def attach_dbc_payload!: (
-      { id: Integer, data: Array[Integer], extended: bool, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } } message,
+      { id: Integer, data: Array[Integer], extended: bool, ?remote: bool, ?dlc: Integer, ?decoded: { name: String, signals: Hash[Symbol, Numeric] }, ?decode_error: { class: String, message: String } } message,
       CanMessenger::DBC dbc
     ) -> void
     def normalize_can_id: (Integer id) -> Integer
@@ -73,6 +73,6 @@ module CanMessenger
       { id: Integer, data: Array[Integer] } encoded,
       extended_id: bool
     ) -> { id: Integer, data: Array[Integer], extended_id: bool }
-    def dbc_decode_id: ({ id: Integer, extended: bool } message) -> Integer
+    def dbc_decode_id: ({ id: Integer, extended: bool, ?remote: bool, ?dlc: Integer } message) -> Integer
   end
 end

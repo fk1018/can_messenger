@@ -6,6 +6,8 @@ module CanMessenger
   # This class provides functionality to parse DBC files and encode/decode CAN messages
   # according to the signal definitions. DBC files are a standard way to describe
   # CAN network communication.
+  # Integer signals support signed or unsigned values, both byte orders, and scaling.
+  # Unsupported floating-point signal declarations raise instead of being decoded as integers.
   #
   # @example Loading and using a DBC file
   #   dbc = CanMessenger::DBC.load('vehicle.dbc')
@@ -17,7 +19,8 @@ module CanMessenger
   #   # Decode a received CAN frame
   #   decoded = dbc.decode_can(0x123, [0x09, 0xC4, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00])
   #   # => { name: 'EngineData', signals: { RPM: 2500.0, Temperature: 85.5 } }
-  class DBC
+  class DBC # rubocop:disable Metrics/ClassLength
+    # Metadata directive names that can be skipped; matching uses complete tokens.
     IGNORED_LINE_PREFIXES = %w[
       BO_TX_BU_
       VERSION
@@ -29,12 +32,19 @@ module CanMessenger
       BA_
       BA_DEF_
       BA_DEF_DEF_
-      SIG_VALTYPE_
     ].freeze
 
+    # Numeric tokens allow a sign, decimal point, and optional scientific exponent.
+    NUMBER_PATTERN = /[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/
+    # Message headers provide the stored identifier, name, payload size, and sender.
     MESSAGE_LINE_PATTERN = /^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)\s+\S.*$/
-    SIGNAL_LINE_PATTERN = /^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@(\d)([+-])\s*\(([^,]+),([^)]+)\)/
+    # Capture the signal layout and scaling; byte order is restricted to @0 or @1.
+    SIGNAL_LINE_PATTERN = /^SG_\s+(\w+)\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*
+                           \(\s*(#{NUMBER_PATTERN})\s*,\s*(#{NUMBER_PATTERN})\s*\)/x
+    # Type 0 is an integer; types 1 and 2 declare unsupported IEEE float and double signals.
+    SIGNAL_VALUE_TYPE_PATTERN = /\ASIG_VALTYPE_\s+\d+\s+\w+\s*:\s*(\d+)\s*;\z/
 
+    # @return [Hash<String, Message>] Parsed message definitions keyed by their names
     attr_reader :messages
 
     # Loads a DBC file from disk and parses its contents.
@@ -50,6 +60,8 @@ module CanMessenger
     # Initializes a new DBC instance.
     #
     # @param [String] content The DBC file content to parse (optional)
+    # @return [void]
+    # @raise [ArgumentError] If the content contains a malformed or unsupported definition
     def initialize(content = "")
       @messages = {}
       parse(content) unless content.empty?
@@ -60,9 +72,11 @@ module CanMessenger
     # This method processes each line of the DBC content, identifying message
     # definitions (BO_) and signal definitions (SG_). It builds a complete
     # message structure with all associated signals.
+    # Existing messages are retained unless a new definition uses the same name.
     #
     # @param [String] content The DBC file content to parse
     # @return [void]
+    # @raise [ArgumentError] If a definition is malformed or unsupported, with line number and text
     def parse(content) # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
       current = nil
       in_namespace_section = false
@@ -70,11 +84,10 @@ module CanMessenger
       # The parser is intentionally strict so malformed DBC files fail early with line context.
       # We still ignore a small allowlist of standard metadata directives that do not affect encode/decode.
       content.each_line.with_index(1) do |line, line_number|
-        raw_line = line.rstrip
-        stripped_line = raw_line.strip
+        stripped_line = line.strip
 
         if in_namespace_section
-          next if raw_line.match?(/^\s+/)
+          next if line.match?(/^\s+\S/)
 
           in_namespace_section = false
         end
@@ -99,6 +112,8 @@ module CanMessenger
           raise_parse_error("Invalid signal definition", line_number, stripped_line) unless sig
 
           current.signals << sig
+        elsif stripped_line.start_with?("SIG_VALTYPE_")
+          validate_signal_value_type(stripped_line, line_number)
         else
           raise_parse_error("Unsupported or malformed DBC line", line_number, stripped_line)
         end
@@ -127,24 +142,21 @@ module CanMessenger
     #
     # @param [String] line A single line from the DBC file
     # @param [Message] _current The current message being processed (unused but kept for API consistency)
-    # @return [Signal, nil] A Signal object if the line matches, nil otherwise
+    # @return [Signal, nil] The signal, or nil if its layout or scaling cannot be parsed
     def parse_signal_line(line, _current) # rubocop:disable Metrics/MethodLength
       return unless (m = line.match(SIGNAL_LINE_PATTERN))
 
-      sig_name = m[1]
-      start_bit = m[2].to_i
-      length = m[3].to_i
-      endian = m[4] == "1" ? :little : :big
-      sign = m[5] == "-" ? :signed : :unsigned
-      factor = m[6].to_f
-      offset = m[7].to_f
+      factor = parse_number(m[6])
+      offset = parse_number(m[7])
+      return unless factor && offset
+      return if factor.zero?
 
       Signal.new(
-        sig_name,
-        start_bit: start_bit,
-        length: length,
-        endianness: endian,
-        sign: sign,
+        m[1],
+        start_bit: m[2].to_i,
+        length: m[3].to_i,
+        endianness: m[4] == "1" ? :little : :big,
+        sign: m[5] == "-" ? :signed : :unsigned,
         factor: factor,
         offset: offset
       )
@@ -158,7 +170,7 @@ module CanMessenger
     # @param [String] name The name of the message to encode
     # @param [Hash<Symbol|String, Numeric>] values Signal names mapped to their values
     # @return [Hash] A hash containing :id (Integer) and :data (Array<Integer>)
-    # @raise [ArgumentError] If the message name is not found in the DBC
+    # @raise [ArgumentError] If the name is unknown, a value is out of range, or a signal exceeds the payload
     #
     # @example
     #   frame = dbc.encode_can('EngineData', RPM: 2500, Temperature: 85.5)
@@ -174,10 +186,13 @@ module CanMessenger
     #
     # Takes a CAN ID and data bytes, finds the matching message definition,
     # and decodes the data into individual signal values according to the DBC.
+    # The identifier must match the stored DBC ID, including its extended-frame
+    # flag when present; Messenger handles this conversion for received frames.
     #
     # @param [Integer] id The CAN message ID
     # @param [Array<Integer>] data The CAN message data bytes
     # @return [Hash, nil] A hash containing :name (String) and :signals (Hash), or nil if no matching message
+    # @raise [ArgumentError] If a signal references bits outside the supplied payload
     #
     # @example
     #   decoded = dbc.decode_can(0x123, [0x09, 0xC4, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00])
@@ -191,10 +206,58 @@ module CanMessenger
 
     private
 
+    # Checks whether a line begins with an explicitly supported metadata directive.
+    #
+    # Comparing the complete token prevents unsupported names such as BA_UNKNOWN_
+    # from being mistaken for the supported BA_ directive.
+    #
+    # @param [String] line The stripped DBC line
+    # @return [Boolean] Whether the parser can skip this directive
     def ignored_line?(line)
-      line.start_with?(*IGNORED_LINE_PREFIXES)
+      IGNORED_LINE_PREFIXES.include?(line.split(/[\s:]/, 2).first)
     end
 
+    # Parses a scaling token without losing precision for integral values.
+    #
+    # Decimal and exponent spellings such as "1.0" and "1e0" remain exact integers.
+    # Fractional values use Float to retain the existing scaling behavior.
+    #
+    # @param [String] value A numeric token matched by the signal pattern
+    # @return [Integer, Float, nil] The parsed value, or nil if a fractional value is not finite
+    def parse_number(value)
+      value = value.sub(/\.(?=[eE]|\z)/, ".0")
+      exact = Rational(value)
+      return exact.to_i if exact.denominator == 1
+
+      number = Float(value)
+      number if number.finite?
+    end
+
+    # Validates a SIG_VALTYPE_ declaration and rejects unsupported signal representations.
+    #
+    # Only integer type 0 is supported. Accepting IEEE types 1 or 2 without handling
+    # their binary representation would silently change the encoded or decoded value.
+    #
+    # @param [String] line The stripped signal-type declaration
+    # @param [Integer] line_number The one-based line number in the DBC content
+    # @return [void]
+    # @raise [ArgumentError] If the declaration is malformed or names an unsupported type
+    def validate_signal_value_type(line, line_number)
+      match = line.match(SIGNAL_VALUE_TYPE_PATTERN)
+      raise_parse_error("Invalid signal value type definition", line_number, line) unless match
+      return if match[1] == "0"
+
+      raise_parse_error("Unsupported signal value type #{match[1]} (only integer type 0 is supported)",
+                        line_number, line)
+    end
+
+    # Raises a parse error with enough source context to locate the definition.
+    #
+    # @param [String] reason The explanation of the parse failure
+    # @param [Integer] line_number The one-based line number in the DBC content
+    # @param [String] line The offending DBC line
+    # @return [void]
+    # @raise [ArgumentError] Always, with the reason, line number, and offending text
     def raise_parse_error(reason, line_number, line)
       raise ArgumentError, "#{reason} at line #{line_number}: #{line}"
     end
@@ -214,9 +277,10 @@ module CanMessenger
 
     # Initializes a new Message instance.
     #
-    # @param [Integer] id The CAN message ID (11-bit standard or 29-bit extended)
+    # @param [Integer] id The stored CAN ID, including the DBC extended-frame flag when present
     # @param [String] name The symbolic name of the message
-    # @param [Integer] dlc Data Length Code - number of bytes in the message (0-8 for classic CAN)
+    # @param [Integer] dlc Payload size in bytes; at most 8 for classic CAN or 64 for CAN FD
+    # @return [void]
     def initialize(id, name, dlc)
       @id = id
       @name = name
@@ -228,9 +292,11 @@ module CanMessenger
     #
     # Iterates through all signals in the message and encodes their values
     # into the appropriate bit positions within the message data bytes.
+    # The new payload is filled with zeros, and only supplied signal values are written.
     #
     # @param [Hash<Symbol|String, Numeric>] values Signal names mapped to their values
     # @return [Array<Integer>] Array of bytes representing the encoded message
+    # @raise [ArgumentError] If a value is out of range or a signal exceeds the payload size
     def encode(values)
       bytes = Array.new(@dlc, 0)
       @signals.each do |sig|
@@ -249,7 +315,8 @@ module CanMessenger
     # the final engineering unit values.
     #
     # @param [Array<Integer>] data The message data bytes to decode
-    # @return [Hash<Symbol, Float>] Signal names mapped to their decoded values
+    # @return [Hash<Symbol, Numeric>] Signal names mapped to their decoded values
+    # @raise [ArgumentError] If a signal references bits outside the supplied payload
     def decode(data)
       res = {}
       @signals.each do |sig|
@@ -285,16 +352,17 @@ module CanMessenger
     # @param [Integer] length The number of bits the signal occupies (1-64)
     # @param [Symbol] endianness Byte order - :little for little-endian, :big for big-endian
     # @param [Symbol] sign Value type - :unsigned for unsigned integers, :signed for signed integers
-    # @param [Float] factor Scaling factor to convert raw value to engineering units
-    # @param [Float] offset Offset to add after scaling
+    # @param [Numeric] factor Scaling factor to convert raw value to engineering units
+    # @param [Numeric] offset Offset to add after scaling
+    # @return [void]
     def initialize(name, start_bit:, length:, endianness:, sign:, factor:, offset:) # rubocop:disable Metrics/ParameterLists
       @name = name
       @start_bit = start_bit
       @length = length
       @endianness = endianness
       @sign = sign
-      @factor = factor
-      @offset = offset
+      @factor = normalize_integral_number(factor)
+      @offset = normalize_integral_number(offset)
     end
 
     # Encodes a value into the message byte array at this signal's bit position.
@@ -302,13 +370,14 @@ module CanMessenger
     # Converts the engineering unit value to a raw integer using the signal's
     # factor and offset, then places the bits into the appropriate positions
     # within the message bytes.
+    # Fractional raw values round to the nearest integer, with ties away from zero.
     #
     # @param [Array<Integer>] bytes The message byte array to modify
     # @param [Numeric] value The engineering unit value to encode
     # @return [void]
     # @raise [ArgumentError] If the value is out of range or signal exceeds message bounds
     def encode(bytes, value)
-      raw = ((value - offset) / factor).round
+      raw = (value - offset).quo(factor).round
       validate_signal_bounds(bytes.size)
       insert_bits(bytes, raw)
     end
@@ -318,15 +387,30 @@ module CanMessenger
     # Extracts the raw integer value from the appropriate bit positions,
     # then applies the signal's scaling (factor and offset) to convert
     # it to engineering units.
+    # Integer factors and offsets preserve exact Integer results; fractional Float scaling returns a Float.
     #
     # @param [Array<Integer>] bytes The message byte array to decode from
-    # @return [Float] The decoded value in engineering units
+    # @return [Numeric] The decoded value in engineering units
+    # @raise [ArgumentError] If a signal bit falls outside the supplied payload
     def decode(bytes)
       raw = extract_bits(bytes)
       (raw * factor) + offset
     end
 
     private
+
+    # Converts integral Float scaling values to Integer without changing fractional values.
+    #
+    # Keeping identity scaling such as 1.0 and 0.0 integral avoids rounding large
+    # signal values through floating-point arithmetic.
+    #
+    # @param [Numeric] number The factor or offset supplied to the signal constructor
+    # @return [Numeric] An Integer for integral finite Floats, otherwise the original number
+    def normalize_integral_number(number)
+      return number unless number.is_a?(Float) && number.finite? && number.denominator == 1
+
+      number.to_i
+    end
 
     # Validates that the signal fits within the message boundaries.
     #
@@ -565,10 +649,25 @@ module CanMessenger
       msb_set ? value - (1 << length) : value
     end
 
+    # Reverses the bit numbering within each byte for Motorola signal positions.
+    #
+    # DBC sawtooth numbering labels a byte's least significant bit as 0, whereas
+    # sequential network numbering starts with its most significant bit. Applying
+    # this conversion twice returns the original position.
+    #
+    # @param [Integer] bitnum The absolute bit position in either numbering scheme
+    # @return [Integer] The corresponding position in the other scheme
     def sawtooth_to_network_bitnum(bitnum)
       (8 * (bitnum / 8)) + (7 - (bitnum % 8))
     end
 
+    # Finds the first signal bit that falls outside the payload boundaries.
+    #
+    # Checks mapped positions so Motorola signals spanning multiple bytes use
+    # the same bounds rules as their encoding and decoding paths.
+    #
+    # @param [Integer] max_allowed_bit The highest valid bit index in the payload
+    # @return [Integer, nil] The first invalid position encountered, or nil if all positions fit
     def invalid_bit_position(max_allowed_bit)
       length.times do |i|
         bit_pos = calculate_bit_position(i)
@@ -578,6 +677,10 @@ module CanMessenger
       nil
     end
 
+    # Converts a payload size to its highest valid zero-based bit index.
+    #
+    # @param [Integer] message_size_bytes The payload size in bytes
+    # @return [Integer] The highest bit index, or -1 for an empty payload
     def max_allowed_bit_for(message_size_bytes)
       (message_size_bytes * 8) - 1
     end

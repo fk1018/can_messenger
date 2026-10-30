@@ -132,6 +132,7 @@ module CanMessenger
     # @return [void]
     def process_message(socket, filter, can_fd, dbc, &block)
       message = @adapter.receive_message(socket: socket, can_fd: can_fd)
+      return unless @listening
       return if message.nil?
       return if filter && !matches_filter?(message_id: message[:id], filter: filter)
 
@@ -186,6 +187,8 @@ module CanMessenger
     end
 
     def attach_dbc_payload!(message, dbc)
+      return if message[:remote]
+
       decoded = dbc.decode_can(dbc_decode_id(message), message[:data])
       message[:decoded] = decoded if decoded
     rescue StandardError => e

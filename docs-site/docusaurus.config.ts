@@ -10,7 +10,11 @@ const config: Config = {
   organizationName: 'can-messenger',
   projectName: 'can-messenger.github.io',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'throw'
+    }
+  },
   i18n: {
     defaultLocale: 'en',
     locales: ['en']

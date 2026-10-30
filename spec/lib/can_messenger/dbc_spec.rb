@@ -90,6 +90,49 @@ RSpec.describe CanMessenger::DBC do
       expect(dbc.messages.keys).to eq(["Example"])
       expect(dbc.messages["Example"].signals.map(&:name)).to eq(["Speed"])
     end
+
+    %w[BA_UNKNOWN_ BA_DEF_UNKNOWN_ VERSION_UNKNOWN VAL_UNKNOWN_].each do |directive|
+      it "rejects the unsupported #{directive} directive" do
+        expect { described_class.new("#{directive} ignored-looking data\n") }.to raise_error(
+          ArgumentError, /Unsupported or malformed DBC line at line 1/
+        )
+      end
+    end
+
+    [1, 2].each do |value_type|
+      it "rejects floating-point signal type #{value_type} with line context" do
+        text = "#{dbc_text}SIG_VALTYPE_ 256 Speed : #{value_type};\n"
+
+        expect { described_class.new(text) }.to raise_error(
+          ArgumentError, /Unsupported signal value type #{value_type} .* at line 4: SIG_VALTYPE_/
+        )
+      end
+    end
+
+    it "rejects malformed signal value type declarations" do
+      expect { described_class.new("#{dbc_text}SIG_VALTYPE_ 256 Speed : nope;\n") }.to raise_error(
+        ArgumentError, /Invalid signal value type definition at line 4/
+      )
+    end
+
+    ["@2+ (1,0)", "@9+ (1,0)", "@1+ (1garbage,0)", "@1+ (1,bogus)",
+     "@1+ (NaN,0)", "@1+ (0,0)", "@1+ (1,Infinity)"].each do |definition|
+      it "rejects invalid signal scaling or byte order #{definition}" do
+        text = "BO_ 1 Invalid: 1 Node\nSG_ Value : 0|8#{definition} [0|255] \"\" Node\n"
+
+        expect { described_class.new(text) }.to raise_error(
+          ArgumentError, /Invalid signal definition at line 2: SG_ Value/
+        )
+      end
+    end
+
+    it "accepts signed decimal and scientific scaling with whitespace" do
+      text = "BO_ 1 Scaled: 1 Node\nSG_ Value : 0|8@1+ ( +5.e-1 , -1E+1 ) [0|100] \"\" Node\n"
+      dbc = described_class.new(text)
+
+      expect(dbc.encode_can("Scaled", Value: 2.5)[:data]).to eq([25])
+      expect(dbc.decode_can(1, [25])[:signals][:Value]).to eq(2.5)
+    end
   end
 
   describe ".load" do
@@ -187,6 +230,64 @@ RSpec.describe CanMessenger::DBC do
 
       decoded = scaled_dbc.decode_can(frame[:id], frame[:data])
       expect(decoded[:signals][:Temp]).to eq(25.0)
+    end
+
+    { "0|64@1" => :little, "7|64@0" => :big }.each do |layout, endianness|
+      %w[1 1.0 1e0].each do |factor|
+        it "preserves all 64 unsigned bits with #{endianness} order and factor #{factor}" do
+          text = "BO_ 1 Wide: 8 Node\nSG_ Value : #{layout}+ (#{factor},0) [0|18446744073709551615] \"\" Node\n"
+          wide = described_class.new(text)
+
+          [(2**53) + 1, (2**64) - 1].each do |value|
+            bytes = [value].pack(endianness == :little ? "Q<" : "Q>").bytes
+            expect(wide.encode_can("Wide", Value: value)[:data]).to eq(bytes)
+            expect(wide.decode_can(1, bytes)[:signals][:Value]).to eql(value)
+          end
+        end
+      end
+
+      it "preserves signed 64-bit boundaries with #{endianness} order" do
+        text = "BO_ 1 Wide: 8 Node\nSG_ Value : #{layout}- (1,0) [-9223372036854775808|9223372036854775807] \"\" Node\n"
+        wide = described_class.new(text)
+
+        [-(2**63), (2**63) - 1].each do |value|
+          bytes = [value].pack(endianness == :little ? "q<" : "q>").bytes
+          expect(wide.encode_can("Wide", Value: value)[:data]).to eq(bytes)
+          expect(wide.decode_can(1, bytes)[:signals][:Value]).to eql(value)
+        end
+      end
+    end
+
+    it "preserves large integral factors and offsets" do
+      text = "BO_ 1 Exact: 1 Node\nSG_ Value : 0|8@1+ (9007199254740993,9007199254740993) [0|1e20] \"\" Node\n"
+      exact = described_class.new(text)
+      value = 2 * ((2**53) + 1)
+
+      expect(exact.encode_can("Exact", Value: value)[:data]).to eq([1])
+      expect(exact.decode_can(1, [1])[:signals][:Value]).to eql(value)
+    end
+
+    it "rounds integer factors consistently with floating factors for directly constructed signals" do
+      [2, 2.0].each do |factor|
+        signal = CanMessenger::Signal.new("Value", start_bit: 0, length: 8, endianness: :little, sign: :signed,
+                                                   factor: factor, offset: 0)
+        { 3 => 2, -3 => 254 }.each do |value, expected|
+          bytes = [0]
+          signal.encode(bytes, value)
+          expect(bytes).to eq([expected])
+        end
+      end
+    end
+
+    it "preserves 64-bit integers with directly constructed integral floating scaling" do
+      signal = CanMessenger::Signal.new("Value", start_bit: 0, length: 64, endianness: :little, sign: :unsigned,
+                                                 factor: 1.0, offset: 0.0)
+      value = (2**64) - 1
+      bytes = Array.new(8, 0)
+      signal.encode(bytes, value)
+
+      expect(bytes).to eq(Array.new(8, 255))
+      expect(signal.decode(bytes)).to eql(value)
     end
 
     it "handles signals with different bit lengths" do
